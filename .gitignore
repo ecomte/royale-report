@@ -218,3 +218,11 @@ __marimo__/
 
 # Streamlit
 .streamlit/secrets.toml
+
+# Royale Report
+.tokens/
+site/
+*.bak
+*.before-*.csv
+data/*/dashboard.html
+.DS_Store
