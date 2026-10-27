@@ -424,10 +424,12 @@ def write_stats(path, rows, name, tag):
 
 # ---------------------------------------------------------------- collecting
 
-def collect(name, tag, token=None, stats_only=False, base_url=DEFAULT_BASE):
+def collect(name, tag, token=None, stats_only=False, base_url=DEFAULT_BASE, battles=None):
     """
     Update one player's battles.csv and STATS.md. Returns a summary dict.
-    `token` is only needed when stats_only is False.
+    `token` is only needed when stats_only is False. Pass `battles` (an
+    already-fetched battle log) to skip the API call, e.g. when cr_duels.py
+    reads the same log.
     """
     folder = DATA_DIR / name
     csv_path = folder / "battles.csv"
@@ -437,7 +439,8 @@ def collect(name, tag, token=None, stats_only=False, base_url=DEFAULT_BASE):
     fetched = 0
     added = []
     if not stats_only:
-        battles = fetch_battlelog(base_url, token, tag)
+        if battles is None:
+            battles = fetch_battlelog(base_url, token, tag)
         fetched = len(battles)
         for b in battles:
             if b.get("type") in EXCLUDED_TYPES:

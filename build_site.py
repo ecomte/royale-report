@@ -26,10 +26,13 @@ from pathlib import Path
 
 sys.dont_write_bytecode = True  # keep __pycache__ out of the folder
 
-from cr_collect import DATA_DIR, CollectError, collect, load_players, read_token, stamp, summary_line
+from cr_collect import (DATA_DIR, DEFAULT_BASE, CollectError, collect, fetch_battlelog, load_players,
+                        read_token, stamp, summary_line)
+from cr_duels import collect_duels, duel_summary
 from cr_dashboard import load_battles
 
 HERE = Path(__file__).resolve().parent
+KEEP_UPDATES = 200   # refresh history entries kept per player (data/<player>/updates.json)
 CONFIG = HERE / "config.json"
 WEB = HERE / "web"
 
@@ -43,6 +46,7 @@ HEAD = """<!doctype html>
 <link rel="stylesheet" href="../web/refresh.css">
 <script>window.RR = {rr};</script>
 <script src="../web/refresh.js"></script>
+<script src="../web/news.js"></script>
 """
 
 LANDING = HERE / "landing_template.html"
@@ -92,8 +96,27 @@ def landing(config, generated):
             .replace("<!--__FOOTER__-->", footer(config)))
 
 
+def updates_path(player):
+    return DATA_DIR / player / "updates.json"
+
+
+def load_updates(player):
+    """Refresh history, oldest first: [{"t": when saved, "battles": [battle times]}]."""
+    try:
+        return json.loads(updates_path(player).read_text())
+    except (FileNotFoundError, ValueError):
+        return []
+
+
+def log_update(player, battle_times):
+    """Remember which battles this refresh brought in, for the page's "new battles" popup."""
+    log = load_updates(player)
+    log.append({"t": datetime.now(timezone.utc).isoformat(timespec="seconds"), "battles": battle_times})
+    updates_path(player).write_text(json.dumps(log[-KEEP_UPDATES:], indent=1) + "\n")
+
+
 def fetch_all(pages):
-    """Pull new battles for every page's player. Returns {player: "ok" | error text}."""
+    """Pull new battles (and duels) for every page's player. Returns {player: "ok" | error text}."""
     try:
         players = load_players()
         token = read_token()
@@ -104,8 +127,16 @@ def fetch_all(pages):
     for p in pages:
         name = p["player"]
         try:
-            print("  " + summary_line(collect(name, players[name], token)))
+            battles = fetch_battlelog(DEFAULT_BASE, token, players[name])
+            res = collect(name, players[name], token, battles=battles)
+            print("  " + summary_line(res))
+            # Duels are tracked on their own (data/<player>/duels.csv), not shown on the pages yet.
+            line = duel_summary(collect_duels(name, players[name], battles=battles))
+            if line:
+                print("  " + line)
             status[name] = "ok"
+            if res["new"]:
+                log_update(name, [r["battle_time_utc"] for r in res["new_battles"]])
         except (CollectError, KeyError) as e:
             print(f"  {name:<8} FAILED: {e}")
             status[name] = str(e)
@@ -127,6 +158,7 @@ def build(site, config, fetched):
             "repo": config["repo"], "workflow": config["workflow"], "branch": config["branch"],
             "pages": nav, "current": p["path"], "generated": generated,
             "fetch": fetched.get(p["player"], "skipped"),
+            "updates": load_updates(p["player"]),
         }
         blob = json.dumps(rr, separators=(",", ":")).replace("</", "<\\/")
         # The template is a page body (no <html>/<head>), so give it a proper document head.
