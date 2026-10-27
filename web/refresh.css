@@ -1,0 +1,47 @@
+/* Player switch + Refresh bar on the hosted pages (see refresh.js). Colors come from the dashboard's :root. */
+.rr-bar {
+  position: sticky; top: 0; z-index: 20;
+  background: rgba(10, 24, 56, .92);
+  -webkit-backdrop-filter: blur(8px); backdrop-filter: blur(8px);
+  border-bottom: 2px solid var(--edge-dark, #0a1a44);
+  padding-top: env(safe-area-inset-top, 0px);
+}
+.rr-inner {
+  max-width: 1080px; margin: 0 auto;
+  padding: 8px max(16px, env(safe-area-inset-right, 0px)) 8px max(16px, env(safe-area-inset-left, 0px));
+  display: flex; align-items: center; gap: 10px;
+}
+.rr-players { display: flex; padding: 3px; border-radius: 999px; background: rgba(5, 15, 45, .6); border: 1px solid var(--edge, #3d6dd0); }
+.rr-players a {
+  font-family: var(--font-display, sans-serif); font-size: 15px; letter-spacing: .5px;
+  color: var(--ink, #eef4ff); text-decoration: none;
+  padding: 4px 14px; border-radius: 999px;
+}
+.rr-players a[aria-current="page"] {
+  background: linear-gradient(180deg, var(--gold, #ffd23f), #f0a800); color: #3a2200;
+  box-shadow: 0 2px 0 var(--gold-deep, #b97c00);
+}
+.rr-msg {
+  flex: 1; min-width: 0; text-align: right;
+  font-size: 13px; font-weight: 700; color: var(--muted, #a3b6df);
+  overflow: hidden; text-overflow: ellipsis; white-space: nowrap;
+}
+.rr-msg.warn { color: var(--gold, #ffd23f); white-space: normal; }
+.rr-refresh {
+  font-family: var(--font-display, sans-serif); font-size: 15px; letter-spacing: .5px;
+  color: #fff; cursor: pointer;
+  padding: 6px 16px; border-radius: 10px;
+  background: linear-gradient(180deg, var(--blue, #49b2ff), var(--blue-deep, #1663c7));
+  border: 2px solid var(--edge-dark, #0a1a44);
+  box-shadow: 0 3px 0 var(--edge-dark, #0a1a44);
+  text-shadow: 0 1px 0 var(--edge-dark, #0a1a44);
+}
+.rr-refresh:active:not(:disabled) { transform: translateY(2px); box-shadow: 0 1px 0 var(--edge-dark, #0a1a44); }
+.rr-refresh:disabled { opacity: .7; cursor: progress; }
+@media (prefers-reduced-motion: no-preference) {
+  .rr-bar.busy .rr-refresh { animation: rr-pulse 1.2s ease-in-out infinite; }
+  @keyframes rr-pulse { 50% { opacity: .45; } }
+}
+/* Keep sections from sliding under the sticky bar when a tab jumps to them. */
+html { scroll-padding-top: 64px; }
+section[id] { scroll-margin-top: 64px; }

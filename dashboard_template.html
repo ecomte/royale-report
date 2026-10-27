@@ -1,0 +1,779 @@
+<title>The Royale Report - __NAME__</title>
+<meta name="claude:viewport-fit-sides" content="cover">
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+<link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Lilita+One&family=Nunito:wght@500;700;800;900&display=swap">
+<style>
+/* Layout: one arena-blue column of "chests" (panels), header plate on top, every list is clickable and filters the battle log at the bottom. Blue = you, red = opponent. */
+:root {
+  --night: #0a1838;
+  --panel: #14306c;
+  --panel-hi: #1c4190;
+  --edge: #3d6dd0;
+  --edge-dark: #0a1a44;
+  --ink: #eef4ff;
+  --muted: #a3b6df;
+  --gold: #ffd23f;
+  --gold-deep: #b97c00;
+  --blue: #49b2ff;
+  --blue-deep: #1663c7;
+  --red: #ff5269;
+  --red-deep: #b5192f;
+  --elixir: #d548dc;
+  --common: #aebdd3;
+  --rare: #ff9d2b;
+  --epic: #b45cff;
+  --legendary: #3fe0d0;
+  --champion: #ffd23f;
+  --font-display: "Lilita One", "Arial Rounded MT Bold", "Trebuchet MS", sans-serif;
+  --font-body: "Nunito", "Segoe UI", system-ui, sans-serif;
+  color-scheme: dark;
+}
+* { box-sizing: border-box; }
+body {
+  margin: 0;
+  background:
+    radial-gradient(ellipse 120% 60% at 50% -10%, #2a5bc0 0%, transparent 60%),
+    repeating-linear-gradient(45deg, rgba(255,255,255,.025) 0 2px, transparent 2px 22px),
+    repeating-linear-gradient(-45deg, rgba(255,255,255,.025) 0 2px, transparent 2px 22px),
+    var(--night);
+  background-attachment: fixed;
+  color: var(--ink);
+  font-family: var(--font-body);
+  font-size: 15px;
+  line-height: 1.45;
+}
+.wrap {
+  max-width: 1080px;
+  margin: 0 auto;
+  padding-block: 20px 60px;
+  padding-left: max(16px, env(safe-area-inset-left, 0px));
+  padding-right: max(16px, env(safe-area-inset-right, 0px));
+  display: grid;
+  gap: 18px;
+}
+h1, h2, h3, .display { font-family: var(--font-display); font-weight: 400; letter-spacing: .5px; margin: 0; text-wrap: balance; }
+.outline { text-shadow: 0 2px 0 var(--edge-dark), 0 -1px 0 var(--edge-dark), 1px 0 0 var(--edge-dark), -1px 0 0 var(--edge-dark), 0 3px 4px rgba(0,0,0,.4); }
+.num { font-variant-numeric: tabular-nums; }
+.muted { color: var(--muted); }
+button, select, input { font-family: inherit; }
+:focus-visible { outline: 3px solid var(--gold); outline-offset: 2px; }
+
+/* ---------- header plate ---------- */
+.plate {
+  background: linear-gradient(180deg, var(--panel-hi), var(--panel));
+  border: 3px solid var(--edge);
+  border-bottom-width: 6px;
+  border-bottom-color: var(--edge-dark);
+  border-radius: 18px;
+  padding: 18px 20px;
+  display: grid;
+  gap: 16px;
+}
+.plate-top { display: flex; flex-wrap: wrap; align-items: center; gap: 14px 18px; }
+.shield {
+  width: 64px; height: 72px; flex: none;
+  display: grid; place-items: center;
+  background: linear-gradient(180deg, var(--blue), var(--blue-deep));
+  clip-path: polygon(50% 0, 100% 14%, 100% 62%, 50% 100%, 0 62%, 0 14%);
+  font-family: var(--font-display); font-size: 30px;
+}
+.plate-name { min-width: 0; flex: 1 1 220px; }
+.plate-name h1 { font-size: clamp(28px, 5vw, 40px); color: var(--gold); line-height: 1.05; }
+.plate-name .sub { color: var(--muted); font-weight: 700; }
+.trophy-now { display: flex; align-items: center; gap: 8px; font-family: var(--font-display); font-size: 30px; color: var(--gold); }
+.trophy-now svg { width: 30px; height: 30px; }
+.kpis { display: grid; grid-template-columns: repeat(auto-fit, minmax(150px, 1fr)); gap: 10px; }
+.kpi {
+  background: rgba(5, 15, 45, .45);
+  border-radius: 12px;
+  padding: 10px 14px;
+  display: grid; gap: 2px;
+}
+.kpi .k { font-size: 12px; text-transform: uppercase; letter-spacing: .08em; color: var(--muted); font-weight: 800; }
+.kpi .v { font-family: var(--font-display); font-size: 26px; line-height: 1.1; }
+.kpi .s { font-size: 13px; color: var(--muted); }
+.win { color: var(--blue); } .loss { color: var(--red); } .gold { color: var(--gold); }
+
+nav.jump { display: flex; flex-wrap: wrap; gap: 8px; }
+nav.jump a {
+  color: var(--ink); text-decoration: none; font-weight: 800; font-size: 13px;
+  padding: 6px 12px; border-radius: 999px; background: rgba(5, 15, 45, .5); border: 1px solid var(--edge);
+}
+nav.jump a:hover { background: var(--panel-hi); }
+nav.jump a[aria-current="page"] { background: linear-gradient(180deg, var(--gold), #f0a800); color: #3a2200; border-color: var(--gold-deep); box-shadow: 0 2px 0 var(--gold-deep); }
+nav.jump a.all { border-style: dashed; }
+
+/* ---------- panels ---------- */
+.panel {
+  background: linear-gradient(180deg, rgba(28, 65, 144, .92), rgba(20, 48, 108, .95));
+  border: 2px solid var(--edge);
+  border-bottom: 5px solid var(--edge-dark);
+  border-radius: 16px;
+  padding: 0 0 16px;
+  min-width: 0;
+  scroll-margin-top: 12px;
+}
+.panel-head {
+  display: flex; flex-wrap: wrap; align-items: center; justify-content: space-between; gap: 10px;
+  padding: 12px 16px;
+  background: linear-gradient(180deg, rgba(255,255,255,.08), rgba(255,255,255,0));
+  border-radius: 14px 14px 0 0;
+  margin-bottom: 4px;
+}
+.panel-head h2 { font-size: 24px; color: var(--gold); }
+.panel-body { padding: 0 16px; display: grid; gap: 12px; min-width: 0; }
+.note { font-size: 13px; color: var(--muted); max-width: 70ch; margin: 0; }
+.two { display: grid; grid-template-columns: repeat(auto-fit, minmax(300px, 1fr)); gap: 18px; }
+
+/* ---------- controls ---------- */
+.controls { display: flex; flex-wrap: wrap; gap: 8px; align-items: center; }
+.seg { display: inline-flex; background: rgba(5, 15, 45, .55); border-radius: 10px; padding: 3px; gap: 3px; }
+.seg button {
+  border: 0; background: transparent; color: var(--muted); font-weight: 800; font-size: 13px;
+  padding: 6px 10px; border-radius: 8px; cursor: pointer;
+}
+.seg button[aria-pressed="true"] { background: linear-gradient(180deg, var(--gold), #f0a800); color: #3a2200; box-shadow: 0 2px 0 var(--gold-deep); }
+.ctl { display: inline-flex; align-items: center; gap: 6px; font-size: 13px; font-weight: 800; color: var(--muted); background: rgba(5, 15, 45, .55); padding: 6px 10px; border-radius: 10px; }
+.ctl input[type=range] { width: 90px; accent-color: var(--gold); }
+.ctl input[type=checkbox] { accent-color: var(--gold); width: 16px; height: 16px; }
+
+/* ---------- scouting report ---------- */
+.scout { display: grid; grid-template-columns: repeat(auto-fit, minmax(220px, 1fr)); gap: 12px; }
+.tip {
+  background: rgba(5, 15, 45, .45); border-radius: 12px; padding: 12px 14px;
+  display: grid; gap: 6px; align-content: start; border-left: 5px solid var(--blue);
+  cursor: pointer; text-align: left; color: inherit; font: inherit; border-top: 0; border-right: 0; border-bottom: 0;
+}
+.tip:hover { background: rgba(5, 15, 45, .7); }
+.tip.bad { border-left-color: var(--red); }
+.tip .k { font-size: 12px; text-transform: uppercase; letter-spacing: .08em; font-weight: 900; color: var(--muted); }
+.tip .h { font-family: var(--font-display); font-size: 22px; line-height: 1.1; }
+.tip .s { font-size: 13px; color: var(--muted); }
+
+/* ---------- card tiles ---------- */
+.card {
+  --r: var(--common);
+  position: relative; flex: none;
+  width: 74px; height: 92px;
+  border-radius: 9px;
+  background: linear-gradient(170deg, #2a4c9a, #102a63 70%);
+  border: 3px solid var(--r);
+  box-shadow: inset 0 0 0 1px rgba(0,0,0,.35), 0 3px 0 rgba(0,0,0,.35);
+  display: flex; align-items: flex-end; justify-content: center;
+  padding: 4px 4px 6px;
+  font-size: 11px; font-weight: 900; line-height: 1.1; text-align: center;
+  overflow: hidden;
+}
+.card::before {
+  content: attr(data-ini);
+  position: absolute; inset: 10px 0 auto; text-align: center;
+  font-family: var(--font-display); font-size: 26px; color: var(--r); opacity: .9;
+}
+.card.rare { --r: var(--rare); } .card.epic { --r: var(--epic); }
+.card.legendary { --r: var(--legendary); border-image: linear-gradient(135deg, #ff8be0, #3fe0d0, #ffd23f) 1; border-radius: 4px; }
+.card.champion { --r: var(--champion); }
+.card.evo { box-shadow: 0 0 0 2px #e56bff, 0 0 12px 2px rgba(229,107,255,.6), 0 3px 0 rgba(0,0,0,.35); }
+.card .ex {
+  position: absolute; top: -2px; left: -2px; width: 22px; height: 26px;
+  background: radial-gradient(circle at 40% 35%, #ff9cff, var(--elixir) 60%, #7a1a86);
+  clip-path: path("M11 0 C11 0 22 12 22 17 A11 9 0 0 1 0 17 C0 12 11 0 11 0Z");
+  font-family: var(--font-display); font-size: 13px; color: #fff; display: grid; place-items: end center; padding-bottom: 3px;
+  text-shadow: 0 1px 0 #4a0a52;
+}
+.card .evo-tag { position: absolute; top: 2px; right: 3px; font-size: 9px; color: #f3a6ff; letter-spacing: .05em; }
+.card .nm { position: relative; z-index: 1; text-shadow: 0 1px 2px #000; }
+.card.sm { width: 40px; height: 48px; border-width: 2px; border-radius: 6px; font-size: 0; padding: 0; }
+.card.sm::before { inset: 9px 0 auto; font-size: 17px; }
+.card.sm .ex { width: 15px; height: 18px; font-size: 10px; clip-path: path("M7.5 0 C7.5 0 15 8 15 12 A7.5 6 0 0 1 0 12 C0 8 7.5 0 7.5 0Z"); padding-bottom: 1px; }
+.card.sm .evo-tag { font-size: 7px; top: 1px; right: 2px; }
+.card.sm .nm { display: none; }
+.deck { display: flex; flex-wrap: wrap; gap: 8px; }
+.deck.sm { gap: 4px; }
+
+/* ---------- your deck tiles with win rate ---------- */
+.mydeck { display: grid; grid-template-columns: repeat(auto-fill, minmax(84px, 1fr)); gap: 10px; }
+.mycard { display: grid; justify-items: center; gap: 4px; cursor: pointer; background: none; border: 0; color: inherit; padding: 0; font: inherit; }
+.mycard .wr { font-family: var(--font-display); font-size: 18px; }
+.mycard .g { font-size: 12px; color: var(--muted); }
+
+/* ---------- win-rate rows ---------- */
+.rows { display: grid; gap: 4px; }
+.row {
+  display: grid; grid-template-columns: minmax(0, 36%) minmax(0, 1fr) 118px; align-items: center; gap: 10px;
+  padding: 6px 8px; border-radius: 10px; cursor: pointer; background: rgba(5, 15, 45, .3);
+  border: 0; color: inherit; font: inherit; text-align: left; width: 100%;
+}
+.row:hover, .row.active { background: rgba(5, 15, 45, .65); }
+.row.active { box-shadow: inset 0 0 0 2px var(--gold); }
+.row .lab { display: flex; align-items: center; gap: 8px; min-width: 0; }
+.row .lab > .card, .row .lab > .deck { flex: none; flex-wrap: nowrap; }
+.row .lab .t { font-weight: 800; min-width: 0; overflow-wrap: anywhere; }
+.row .lab .t small { display: block; font-weight: 700; color: var(--muted); font-size: 12px; }
+.row.small-n .t, .row.small-n .stat { opacity: .6; }
+.bar { position: relative; height: 16px; border-radius: 8px; background: rgba(0,0,0,.35); overflow: hidden; }
+.bar .fill { position: absolute; top: 0; bottom: 0; border-radius: 3px; }
+.bar .fill.up { background: linear-gradient(90deg, var(--blue-deep), var(--blue)); }
+.bar .fill.down { background: linear-gradient(90deg, var(--red), var(--red-deep)); }
+.bar .base { position: absolute; top: -2px; bottom: -2px; width: 2px; background: var(--gold); }
+.bar .tick50 { position: absolute; top: 0; bottom: 0; left: 50%; width: 1px; background: rgba(255,255,255,.18); }
+.stat { text-align: right; white-space: nowrap; font-size: 13px; }
+.stat b { font-family: var(--font-display); font-weight: 400; font-size: 18px; display: inline-block; min-width: 3.1ch; }
+.stat .rec { color: var(--muted); }
+.stat .tr { display: block; font-size: 12px; }
+.tr.pos { color: var(--blue); } .tr.neg { color: var(--red); }
+.legend { display: flex; flex-wrap: wrap; gap: 14px; font-size: 12px; color: var(--muted); font-weight: 700; }
+.legend i { display: inline-block; width: 12px; height: 12px; border-radius: 3px; vertical-align: -2px; margin-right: 4px; }
+.empty { color: var(--muted); font-style: italic; padding: 8px; }
+.more { justify-self: start; }
+
+/* ---------- chart ---------- */
+.chart { position: relative; min-width: 0; }
+.chart svg { display: block; width: 100%; height: 240px; overflow: visible; }
+.chart text { fill: var(--muted); font-family: var(--font-body); font-size: 11px; font-weight: 700; }
+.tooltip {
+  position: absolute; pointer-events: none; background: #061233; border: 2px solid var(--gold); border-radius: 10px;
+  padding: 8px 10px; font-size: 13px; min-width: 150px; transform: translate(-50%, calc(-100% - 12px)); white-space: nowrap; z-index: 5;
+}
+
+/* ---------- small stats ---------- */
+.mini { display: grid; grid-template-columns: repeat(auto-fit, minmax(150px, 1fr)); gap: 10px; }
+.stack { display: flex; height: 26px; border-radius: 8px; overflow: hidden; background: rgba(0,0,0,.35); }
+.stack span { display: grid; place-items: center; font-weight: 900; font-size: 12px; min-width: 0; overflow: hidden; }
+h3 { font-size: 18px; color: var(--ink); }
+
+/* ---------- battle log ---------- */
+.chips { display: flex; flex-wrap: wrap; gap: 8px; align-items: center; }
+.chip {
+  display: inline-flex; align-items: center; gap: 8px; background: var(--gold); color: #3a2200; font-weight: 900;
+  border-radius: 999px; padding: 5px 6px 5px 12px; font-size: 13px;
+}
+.chip button { border: 0; background: #3a2200; color: var(--gold); border-radius: 999px; width: 22px; height: 22px; cursor: pointer; font-weight: 900; }
+.log { display: grid; gap: 6px; }
+.battle {
+  display: grid; grid-template-columns: 72px minmax(0, 1fr) auto; gap: 10px 12px; align-items: center;
+  background: rgba(5, 15, 45, .4); border-radius: 12px; padding: 8px 10px; border-left: 5px solid var(--blue);
+}
+.battle.L { border-left-color: var(--red); }
+.badge { font-family: var(--font-display); font-size: 18px; text-align: center; line-height: 1; }
+.battle.W .badge { color: var(--blue); } .battle.L .badge { color: var(--red); } .battle.D .badge { color: var(--muted); }
+.badge small { display: block; font-family: var(--font-body); font-weight: 800; font-size: 12px; color: var(--ink); margin-top: 3px; }
+.who { min-width: 0; display: grid; gap: 4px; }
+.who .n { font-weight: 900; overflow-wrap: anywhere; }
+.who .n span { font-weight: 700; color: var(--muted); font-size: 13px; }
+.battle .tr { font-family: var(--font-display); font-size: 18px; text-align: right; white-space: nowrap; }
+.battle .tr small { display: block; font-family: var(--font-body); font-size: 11px; color: var(--muted); font-weight: 700; }
+
+.btn {
+  border: 0; cursor: pointer; font-family: var(--font-display); font-size: 16px; letter-spacing: .5px;
+  padding: 8px 16px; border-radius: 10px; color: #fff;
+  background: linear-gradient(180deg, var(--blue), var(--blue-deep)); box-shadow: 0 4px 0 #0b3b80;
+  text-shadow: 0 1px 0 #0b3b80;
+}
+.btn:active { transform: translateY(2px); box-shadow: 0 2px 0 #0b3b80; }
+footer { text-align: center; color: var(--muted); font-size: 12px; }
+
+@media (max-width: 560px) {
+  .row { grid-template-columns: minmax(0, 1fr) auto; }
+  .row .bar { grid-column: 1 / -1; grid-row: 2; }
+  .battle { grid-template-columns: 56px minmax(0, 1fr) auto; }
+  .card.sm { width: 32px; height: 40px; }
+  .card.sm::before { font-size: 14px; inset: 8px 0 auto; }
+}
+@media (prefers-reduced-motion: no-preference) {
+  .bar .fill { transition: left .3s ease, width .3s ease; }
+}
+</style>
+
+<div class="wrap">
+  <header class="plate" aria-label="Player summary">
+    <div class="plate-top">
+      <div class="shield outline" id="ini" aria-hidden="true"></div>
+      <div class="plate-name">
+        <h1 class="outline" id="pname"></h1>
+        <div class="sub" id="psub"></div>
+      </div>
+      <div class="trophy-now outline" id="trnow"></div>
+    </div>
+    <div class="kpis" id="kpis"></div>
+    <nav class="jump" aria-label="Sections" id="tabs">
+      <a href="#scout">Scouting report</a><a href="#deck">Your deck</a><a href="#cards">Your cards</a>
+      <a href="#enemy">Enemy cards</a><a href="#combos">Enemy combos</a><a href="#types">Deck types</a>
+      <a href="#factors">What decides games</a><a href="#log">Battle log</a><a href="#road">Trophy road</a>
+      <a href="#all" class="all">Show all</a>
+    </nav>
+  </header>
+
+  <section class="panel" id="scout">
+    <div class="panel-head"><h2 class="outline">Scouting report</h2>
+      <span class="note">Tap any tile to see those battles</span></div>
+    <div class="panel-body"><div class="scout" id="tips"></div></div>
+  </section>
+
+  <section class="panel" id="deck">
+    <div class="panel-head"><h2 class="outline">Your deck</h2></div>
+    <div class="panel-body">
+      <div class="mydeck" id="mydeck"></div>
+      <p class="note" id="decknote"></p>
+      <h3>Deck builds you tried</h3>
+      <div class="rows" id="variants"></div>
+    </div>
+  </section>
+
+  <section class="panel" id="cards">
+    <div class="panel-head"><h2 class="outline">Your cards</h2>
+      <div class="seg" role="group" aria-label="Sort your cards" id="csort">
+        <button type="button" data-v="seen" aria-pressed="true">Most played</button>
+        <button type="button" data-v="easy" aria-pressed="false">Best win rate</button>
+        <button type="button" data-v="danger" aria-pressed="false">Worst win rate</button>
+      </div></div>
+    <div class="panel-body">
+      <p class="note">Every card you've put in a deck, counted separately when evolved. Faded rows have fewer than 8 games, so treat them as early signs.</p>
+      <div class="rows" id="mycards"></div>
+    </div>
+  </section>
+
+  <section class="panel" id="enemy">
+    <div class="panel-head"><h2 class="outline">Enemy cards</h2>
+      <div class="controls">
+        <div class="seg" role="group" aria-label="Sort enemy cards" id="esort">
+          <button type="button" data-v="danger" aria-pressed="true">Most dangerous</button>
+          <button type="button" data-v="easy" aria-pressed="false">Easiest</button>
+          <button type="button" data-v="seen" aria-pressed="false">Most seen</button>
+        </div>
+        <label class="ctl" for="emin">Min games <input type="range" id="emin" min="2" max="15" value="5"><span class="num" id="eminv">5</span></label>
+        <label class="ctl" for="emerge"><input type="checkbox" id="emerge" checked> Merge Evo</label>
+      </div></div>
+    <div class="panel-body">
+      <div class="legend"><span><i style="background:var(--gold)"></i>Your overall win rate</span><span><i style="background:var(--blue)"></i>Better than usual</span><span><i style="background:var(--red)"></i>Worse than usual</span></div>
+      <div class="rows" id="ecards"></div>
+      <button type="button" class="btn more" id="emore">Show more</button>
+    </div>
+  </section>
+
+  <section class="panel" id="combos">
+    <div class="panel-head"><h2 class="outline">Enemy combos</h2>
+      <div class="controls">
+        <div class="seg" role="group" aria-label="Sort enemy combos" id="psort">
+          <button type="button" data-v="danger" aria-pressed="true">Toughest</button>
+          <button type="button" data-v="easy" aria-pressed="false">Easiest</button>
+        </div>
+        <label class="ctl" for="pmin">Min games <input type="range" id="pmin" min="2" max="12" value="5"><span class="num" id="pminv">5</span></label>
+      </div></div>
+    <div class="panel-body">
+      <p class="note">Two cards in the same enemy deck. Uses the Merge Evo setting from Enemy cards.</p>
+      <div class="rows" id="pairs"></div>
+    </div>
+  </section>
+
+  <section class="panel" id="types">
+    <div class="panel-head"><h2 class="outline">Deck types you face</h2></div>
+    <div class="panel-body">
+      <p class="note">Each enemy deck is sorted by its main win condition (Hog Rider, Goblin Barrel, Golem and so on).</p>
+      <div class="rows" id="archs"></div>
+    </div>
+  </section>
+
+  <section class="panel" id="factors">
+    <div class="panel-head"><h2 class="outline">What decides your games</h2></div>
+    <div class="panel-body">
+      <div class="two">
+        <div class="panel-body" style="padding:0"><h3>Card levels vs. opponent</h3><div class="rows" id="levels"></div></div>
+        <div class="panel-body" style="padding:0"><h3>Opponent tower troop</h3><div class="rows" id="towers"></div></div>
+      </div>
+      <h3>How games end</h3>
+      <div class="mini" id="ends"></div>
+    </div>
+  </section>
+
+  <section class="panel" id="log">
+    <div class="panel-head"><h2 class="outline">Battle log</h2><div class="chips" id="chips"></div></div>
+    <div class="panel-body">
+      <div class="log" id="battles"></div>
+      <button type="button" class="btn more" id="lmore">Show more</button>
+    </div>
+  </section>
+
+  <section class="panel" id="road">
+    <div class="panel-head"><h2 class="outline">Trophy road</h2>
+      <div class="legend"><span><i style="background:var(--blue)"></i>Win</span><span><i style="background:var(--red)"></i>Loss</span></div></div>
+    <div class="panel-body"><div class="chart" id="trchart"></div></div>
+  </section>
+
+  <footer id="foot"></footer>
+</div>
+
+<script>
+const DATA = /*__DATA__*/null;
+const B = DATA.battles;
+const CARDS = DATA.cards;
+const $ = (id) => document.getElementById(id);
+const esc = (s) => String(s).replace(/[&<>"']/g, (c) => ({"&":"&amp;","<":"&lt;",">":"&gt;",'"':"&quot;","'":"&#39;"}[c]));
+const pct = (w, n) => n ? Math.round(100 * w / n) : 0;
+const base = (c) => c.replace(/ \(Evo\)$/, "");
+const isEvo = (c) => / \(Evo\)$/.test(c);
+const signed = (n) => (n > 0 ? "+" : n < 0 ? "−" : "") + Math.abs(n);
+const TROPHY = '<svg viewBox="0 0 24 24" aria-hidden="true"><path fill="#ffd23f" stroke="#7a4f00" stroke-width="1.2" d="M6 3h12v3h3v2a5 5 0 0 1-5 5 5 5 0 0 1-3 2.6V18h3v3H8v-3h3v-2.4A5 5 0 0 1 8 13a5 5 0 0 1-5-5V6h3zM5 8a3 3 0 0 0 2 2.8V8zm14 0h-2v2.8A3 3 0 0 0 19 8z"/></svg>';
+
+const state = { csort: "seen", merge: true, esort: "danger", emin: 5, eshow: 12, psort: "danger", pmin: 5, filter: null, lshow: 15, };
+
+const decided = B.filter((b) => b.res !== "D");
+const W = B.filter((b) => b.res === "W").length;
+const L = B.filter((b) => b.res === "L").length;
+const BASE = W / Math.max(1, W + L);
+
+function tally(list) {
+  let w = 0, l = 0, net = 0;
+  for (const b of list) { if (b.res === "W") w++; else if (b.res === "L") l++; net += b.dtr; }
+  return { w, l, n: w + l, net, wr: (w + l) ? w / (w + l) : 0, extra: l - (w + l) * (1 - BASE) };
+}
+const key = (c) => state.merge ? base(c) : c;
+
+function cardTile(c, size) {
+  const b = base(c), info = CARDS[b];
+  const ini = b.replace(/[^A-Za-z0-9 ]/g, "").split(" ").filter(Boolean).map((w) => w[0]).join("").slice(0, 3);
+  const cls = ["card", size || "", info ? info[1] : "common", isEvo(c) ? "evo" : ""].join(" ");
+  return `<span class="${cls}" data-ini="${esc(ini)}" title="${esc(c)}">` +
+    (info ? `<span class="ex">${info[0]}</span>` : "") +
+    (isEvo(c) ? '<span class="evo-tag">EVO</span>' : "") +
+    `<span class="nm">${esc(b)}</span></span>`;
+}
+
+function wrBar(wr) {
+  const v = wr * 100, b = BASE * 100;
+  const left = Math.min(v, b), width = Math.abs(v - b);
+  return `<span class="bar" aria-hidden="true"><span class="tick50"></span>` +
+    `<span class="fill ${v >= b ? "up" : "down"}" style="left:${left}%;width:${Math.max(width, .8)}%"></span>` +
+    `<span class="base" style="left:calc(${b}% - 1px)"></span></span>`;
+}
+
+function rowHTML(item) {
+  const t = item.t, active = sameFilter(state.filter, item.filter) ? " active" : "";
+  const small = t.n < 8 ? " small-n" : "";
+  return `<button type="button" class="row${active}${small}" data-f='${esc(JSON.stringify(item.filter))}' aria-label="${esc(item.aria || item.name)}: ${pct(t.w, t.n)}% win rate, ${t.w} wins ${t.l} losses">` +
+    `<span class="lab">${item.icon || ""}<span class="t">${esc(item.name)}${item.sub ? `<small>${esc(item.sub)}</small>` : ""}</span></span>` +
+    wrBar(t.wr) +
+    `<span class="stat num"><b class="${t.wr >= BASE ? "win" : "loss"}">${pct(t.w, t.n)}%</b> <span class="rec">${t.w}–${t.l}</span>` +
+    `<span class="tr ${t.net >= 0 ? "pos" : "neg"}">${signed(t.net)} trophies</span></span></button>`;
+}
+
+function bindRows(el) {
+  el.querySelectorAll("[data-f]").forEach((btn) => btn.addEventListener("click", () => {
+    const f = JSON.parse(btn.dataset.f);
+    setFilter(sameFilter(state.filter, f) ? null : f, true);
+  }));
+}
+
+/* ---------- filters ---------- */
+function sameFilter(a, b) { return !!a && !!b && JSON.stringify(a) === JSON.stringify(b); }
+function matches(b, f) {
+  if (!f) return true;
+  if (f.type === "ecard") return b.opp.some((c) => (f.merge ? base(c) : c) === f.v);
+  if (f.type === "pair") return f.v.every((v) => b.opp.some((c) => (f.merge ? base(c) : c) === v));
+  if (f.type === "arch") return b.arch === f.v;
+  if (f.type === "deck") return deckKey(b.my) === f.v;
+  if (f.type === "mycard") return b.my.includes(f.v);
+  if (f.type === "level") return levelBucket(b) === f.v;
+  if (f.type === "tower") return b.oppTower === f.v;
+  return true;
+}
+function filterLabel(f) {
+  return { ecard: "Enemy has " + f.v, pair: "Enemy has " + [].concat(f.v).join(" + "), arch: "Vs. " + f.v,
+    deck: "Your build: " + (f.label || ""), mycard: "You played " + f.v, level: f.v, tower: "Vs. " + f.v }[f.type] || "";
+}
+function setFilter(f, jump) {
+  state.filter = f; state.lshow = 15;
+  renderAllRows(); renderLog();
+  if (!jump || !f) return;
+  if (currentTab() !== "all") { location.hash = "log"; return; }
+  $("log").scrollIntoView({ behavior: matchMedia("(prefers-reduced-motion: reduce)").matches ? "auto" : "smooth" });
+}
+
+/* ---------- tabs: one section at a time, or all of them ---------- */
+const TABS = [...document.querySelectorAll("#tabs a")].map((a) => a.hash.slice(1));
+function currentTab() { const h = location.hash.slice(1); return TABS.includes(h) ? h : "scout"; }
+function showTab() {
+  const tab = currentTab();
+  document.querySelectorAll("section.panel").forEach((sec) => { sec.hidden = tab !== "all" && sec.id !== tab; });
+  document.querySelectorAll("#tabs a").forEach((a) => {
+    if (a.hash.slice(1) === tab) a.setAttribute("aria-current", "page"); else a.removeAttribute("aria-current");
+  });
+  if (tab === "road" || tab === "all") renderChart();
+  window.scrollTo(0, 0);
+}
+window.addEventListener("hashchange", showTab);
+
+/* ---------- header ---------- */
+function renderHeader() {
+  const p = DATA.player;
+  $("ini").textContent = (p.name || "?").slice(0, 1).toUpperCase();
+  $("pname").textContent = "The Royale Report - " + p.name;
+  const first = new Date(B[0].t), last = new Date(B[B.length - 1].t);
+  const fmt = (d) => d.toLocaleDateString(undefined, { month: "short", day: "numeric" });
+  const lastB = B[B.length - 1];
+  $("psub").textContent = `${p.tag ? p.tag + " · " : ""}${B.length} ladder battles · ${fmt(first)} to ${fmt(last)} · ${lastB.arena}`;
+  const nowTr = lastB.tr + lastB.dtr;
+  $("trnow").innerHTML = TROPHY + `<span class="num">${nowTr.toLocaleString()}</span>`;
+
+  const t = tally(B);
+  let best = 0, run = 0, cur = 0, curRes = null;
+  for (const b of B) { if (b.res === "W") { run++; best = Math.max(best, run); } else run = 0; }
+  for (let i = B.length - 1; i >= 0; i--) { if (curRes === null) curRes = B[i].res; if (B[i].res !== curRes) break; cur++; }
+  const peak = Math.max(...B.map((b) => b.tr + b.dtr));
+  const wins = B.filter((b) => b.res === "W");
+  const three = wins.filter((b) => b.mc === 3).length;
+  const kpi = (k, v, s, cls) => `<div class="kpi"><span class="k">${k}</span><span class="v num ${cls || ""}">${v}</span><span class="s">${s}</span></div>`;
+  $("kpis").innerHTML =
+    kpi("Win rate", pct(t.w, t.n) + "%", `${t.w} wins, ${t.l} losses`, "win") +
+    kpi("Trophies", signed(t.net), `peak ${peak.toLocaleString()}`, t.net >= 0 ? "gold" : "loss") +
+    kpi("Streak now", `${cur} ${curRes === "W" ? "W" : "L"}`, `best win streak ${best}`, curRes === "W" ? "win" : "loss") +
+    kpi("3-crown wins", pct(three, wins.length) + "%", `${three} of ${wins.length} wins`, "gold");
+  $("foot").textContent = `Ladder battles only. Clan Wars boat battles and duels are left out. Built ${new Date(DATA.generated).toLocaleString()}.`;
+}
+
+/* ---------- scouting report ---------- */
+function groupEnemyCards(list, merge) {
+  const m = new Map();
+  for (const b of list) for (const c of new Set(b.opp.map((c) => merge ? base(c) : c))) {
+    if (!m.has(c)) m.set(c, []); m.get(c).push(b);
+  }
+  return [...m].map(([c, bs]) => ({ c, t: tally(bs) }));
+}
+function groupBy(list, fn) {
+  const m = new Map();
+  for (const b of list) { const k = fn(b); if (!m.has(k)) m.set(k, []); m.get(k).push(b); }
+  return [...m].map(([k, bs]) => ({ k, t: tally(bs) }));
+}
+function renderTips() {
+  const cards = groupEnemyCards(B, true).filter((x) => x.t.n >= 6);
+  const nem = [...cards].sort((a, b) => b.t.extra - a.t.extra)[0];
+  const fav = [...cards].sort((a, b) => b.t.wr - a.t.wr || b.t.n - a.t.n)[0];
+  const arch = groupBy(B, (b) => b.arch).filter((x) => x.t.n >= 5);
+  const worstA = [...arch].sort((a, b) => a.t.wr - b.t.wr || b.t.n - a.t.n)[0];
+  const bestA = [...arch].sort((a, b) => b.t.wr - a.t.wr || b.t.n - a.t.n)[0];
+  const tip = (cls, k, h, s, f) => `<button type="button" class="tip ${cls}" data-f='${esc(JSON.stringify(f))}'><span class="k">${k}</span><span class="h">${esc(h)}</span><span class="s">${s}</span></button>`;
+  let html = "";
+  if (nem) html += tip("bad", "Your nemesis card", nem.c, `You win ${pct(nem.t.w, nem.t.n)}% when it shows up (${nem.t.w}–${nem.t.l}), and it cost you ${signed(nem.t.net)} trophies.`, { type: "ecard", v: nem.c, merge: true });
+  if (worstA) html += tip("bad", "Toughest deck type", worstA.k, `${pct(worstA.t.w, worstA.t.n)}% win rate over ${worstA.t.n} games, ${signed(worstA.t.net)} trophies.`, { type: "arch", v: worstA.k });
+  if (bestA) html += tip("", "Easiest deck type", bestA.k, `${pct(bestA.t.w, bestA.t.n)}% win rate over ${bestA.t.n} games, ${signed(bestA.t.net)} trophies.`, { type: "arch", v: bestA.k });
+  if (fav) html += tip("", "Card you feast on", fav.c, `You win ${pct(fav.t.w, fav.t.n)}% when it shows up (${fav.t.w}–${fav.t.l}).`, { type: "ecard", v: fav.c, merge: true });
+  $("tips").innerHTML = html;
+  bindRows($("tips"));
+}
+
+/* ---------- trophy chart ---------- */
+function renderChart() {
+  const el = $("trchart");
+  const w = Math.max(280, el.clientWidth), h = 240, pl = 46, pr = 12, pt = 14, pb = 26;
+  const pts = B.map((b, i) => ({ i, y: b.tr + b.dtr, b }));
+  const ys = pts.map((p) => p.y).concat([B[0].tr]);
+  let lo = Math.min(...ys), hi = Math.max(...ys);
+  const step = (hi - lo) > 400 ? 100 : 50;
+  lo = Math.floor(lo / step) * step; hi = Math.ceil(hi / step) * step;
+  const X = (i) => pl + (w - pl - pr) * (i + 1) / B.length;
+  const Y = (v) => pt + (h - pt - pb) * (1 - (v - lo) / (hi - lo || 1));
+  let g = "";
+  for (let v = lo; v <= hi; v += step) g += `<line x1="${pl}" x2="${w - pr}" y1="${Y(v)}" y2="${Y(v)}" stroke="rgba(255,255,255,.08)"/><text x="${pl - 6}" y="${Y(v) + 4}" text-anchor="end">${v.toLocaleString()}</text>`;
+  // day labels
+  let lastDay = "", lastLabel = -999;
+  B.forEach((b, i) => {
+    const d = new Date(b.t).toLocaleDateString(undefined, { month: "short", day: "numeric" });
+    if (d !== lastDay) {
+      lastDay = d; g += `<line x1="${X(i)}" x2="${X(i)}" y1="${pt}" y2="${h - pb}" stroke="rgba(255,255,255,.05)"/>`;
+      if (X(i) < w - 40 && X(i) - lastLabel > 52) { g += `<text x="${X(i) + 3}" y="${h - 8}">${d}</text>`; lastLabel = X(i); }
+    }
+  });
+  const line = `M${pl},${Y(B[0].tr)} ` + pts.map((p) => `L${X(p.i)},${Y(p.y)}`).join(" ");
+  const area = line + ` L${X(B.length - 1)},${h - pb} L${pl},${h - pb} Z`;
+  const r = B.length > 80 ? 2.6 : 3.5;
+  const dots = pts.map((p) => `<circle cx="${X(p.i)}" cy="${Y(p.y)}" r="${r}" fill="${p.b.res === "W" ? "#49b2ff" : p.b.res === "L" ? "#ff5269" : "#a3b6df"}"/>`).join("");
+  const lastP = pts[pts.length - 1];
+  el.innerHTML = `<svg viewBox="0 0 ${w} ${h}" role="img" aria-label="Trophies after each battle, from ${B[0].tr} to ${lastP.y}">` +
+    `<defs><linearGradient id="ag" x1="0" y1="0" x2="0" y2="1"><stop offset="0" stop-color="#ffd23f" stop-opacity=".35"/><stop offset="1" stop-color="#ffd23f" stop-opacity="0"/></linearGradient></defs>` +
+    g + `<path d="${area}" fill="url(#ag)"/><path d="${line}" fill="none" stroke="#ffd23f" stroke-width="2.5" stroke-linejoin="round"/>` + dots +
+    `<circle cx="${X(lastP.i)}" cy="${Y(lastP.y)}" r="6" fill="#ffd23f" stroke="#0a1838" stroke-width="2"/>` +
+    `<line id="guide" y1="${pt}" y2="${h - pb}" stroke="#ffd23f" stroke-dasharray="3 3" opacity="0"/>` +
+    `<rect x="${pl}" y="0" width="${w - pl - pr}" height="${h}" fill="transparent" id="hit"/></svg><div class="tooltip" id="tt" hidden></div>`;
+  const hit = el.querySelector("#hit"), tt = el.querySelector("#tt"), guide = el.querySelector("#guide");
+  const move = (ev) => {
+    const box = el.getBoundingClientRect();
+    const x = (ev.touches ? ev.touches[0].clientX : ev.clientX) - box.left;
+    const i = Math.max(0, Math.min(B.length - 1, Math.round((x - pl) / (w - pl - pr) * B.length - 1)));
+    const b = B[i];
+    guide.setAttribute("x1", X(i)); guide.setAttribute("x2", X(i)); guide.setAttribute("opacity", 1);
+    tt.hidden = false;
+    tt.style.left = Math.max(80, Math.min(w - 80, X(i))) + "px"; tt.style.top = Y(b.tr + b.dtr) + "px";
+    tt.innerHTML = `<b style="color:${b.res === "W" ? "var(--blue)" : "var(--red)"}">${b.res === "W" ? "Win" : b.res === "L" ? "Loss" : "Draw"} ${b.mc}–${b.oc}</b> · ${signed(b.dtr)}<br>${(b.tr + b.dtr).toLocaleString()} trophies<br><span class="muted">vs ${esc(b.oppName)} (${esc(b.arch)})<br>${new Date(b.t).toLocaleString(undefined, { month: "short", day: "numeric", hour: "numeric", minute: "2-digit" })}</span>`;
+  };
+  hit.addEventListener("mousemove", move); hit.addEventListener("touchstart", move, { passive: true }); hit.addEventListener("touchmove", move, { passive: true });
+  hit.addEventListener("mouseleave", () => { tt.hidden = true; guide.setAttribute("opacity", 0); });
+}
+
+/* ---------- your deck ---------- */
+const deckKey = (deck) => [...deck].sort().join("|");
+function renderDeck() {
+  const groups = groupBy(B, (b) => deckKey(b.my)).sort((a, b) => b.t.n - a.t.n);
+  const main = groups[0].k.split("|");
+  const mainN = groups[0].t.n;
+  $("mydeck").innerHTML = main.map((c) => {
+    const t = tally(B.filter((b) => b.my.includes(c)));
+    const f = { type: "mycard", v: c };
+    return `<button type="button" class="mycard" data-f='${esc(JSON.stringify(f))}' aria-label="${esc(c)}: ${pct(t.w, t.n)}% over ${t.n} games">${cardTile(c)}<span class="wr num ${t.wr >= BASE ? "v win" : "v loss"}">${pct(t.w, t.n)}%</span><span class="g num">${t.w}–${t.l}</span></button>`;
+  }).join("");
+  bindRows($("mydeck"));
+  const share = Math.round(100 * mainN / B.length);
+  $("decknote").textContent = `You played this exact deck in ${mainN} of ${B.length} battles (${share}%), so each card's win rate mostly matches the deck's. The builds below show what happened when you swapped cards.`;
+  const set = new Set(main);
+  const items = groups.map((g, i) => {
+    const d = g.k.split("|"); const ds = new Set(d);
+    const plus = d.filter((c) => !set.has(c)), minus = main.filter((c) => !ds.has(c));
+    const games = `${g.t.n} game${g.t.n === 1 ? "" : "s"}`;
+    if (i === 0) return { name: "Main deck", sub: "the 8 cards above", t: g.t, filter: { type: "deck", v: g.k, label: "Main deck" } };
+    if (plus.length > 3) {
+      return { name: "Different deck", sub: `${games} · ${d.map(base).join(", ")}`, t: g.t,
+        filter: { type: "deck", v: g.k, label: "Different deck" } };
+    }
+    // An Evo moving from one card to another reads better as "Evo Dart Goblin instead of Evo Royal Giant".
+    const parts = [];
+    const evoIn = plus.filter((c) => isEvo(c) && minus.includes(base(c)));
+    const evoOut = minus.filter((c) => isEvo(c) && plus.includes(base(c)));
+    const rest = (list, skip) => list.filter((c) => !skip.some((e) => base(e) === base(c)));
+    if (evoIn.length) parts.push("Evo " + evoIn.map(base).join(", ") + (evoOut.length ? " instead of Evo " + evoOut.map(base).join(", ") : ""));
+    const pl = rest(plus, evoIn.concat(evoOut)), mi = rest(minus, evoIn.concat(evoOut));
+    if (pl.length || mi.length) parts.push(pl.map((c) => "+" + c).concat(mi.map((c) => "−" + c)).join("  "));
+    const name = parts.join("  ");
+    return { name, sub: games, t: g.t,
+      icon: `<span class="deck sm">${plus.map((c) => cardTile(c, "sm")).join("")}</span>`,
+      filter: { type: "deck", v: g.k, label: name } };
+  });
+  $("variants").innerHTML = items.map(rowHTML).join("");
+  bindRows($("variants"));
+}
+
+/* ---------- your cards ---------- */
+function renderMyCards() {
+  const m = new Map();
+  for (const b of B) b.my.forEach((c, i) => {
+    if (!m.has(c)) m.set(c, { bs: [], lv: [] });
+    m.get(c).bs.push(b); m.get(c).lv.push(b.myLv[i]);
+  });
+  const all = [...m].map(([c, x]) => ({ c, t: tally(x.bs), lv: avg(x.lv) })).sort(sorter(state.csort));
+  $("mycards").innerHTML = all.map((x) => rowHTML({ name: x.c,
+    sub: `${x.t.n} game${x.t.n === 1 ? "" : "s"}${x.lv != null ? " \u00b7 level " + Math.round(x.lv) : ""}`, t: x.t,
+    icon: cardTile(x.c, "sm"), filter: { type: "mycard", v: x.c } })).join("");
+  bindRows($("mycards"));
+}
+
+/* ---------- enemy cards ---------- */
+function sorter(mode) {
+  if (mode === "danger") return (a, b) => b.t.extra - a.t.extra || a.t.wr - b.t.wr;
+  if (mode === "easy") return (a, b) => b.t.wr - a.t.wr || b.t.n - a.t.n;
+  return (a, b) => b.t.n - a.t.n || a.t.wr - b.t.wr;
+}
+function renderEnemy() {
+  const all = groupEnemyCards(B, state.merge).filter((x) => x.t.n >= state.emin).sort(sorter(state.esort));
+  const shown = all.slice(0, state.eshow);
+  $("ecards").innerHTML = shown.length ? shown.map((x) => rowHTML({ name: x.c, sub: `in ${x.t.n} of your games`, t: x.t,
+    icon: cardTile(state.merge ? x.c : x.c, "sm"), filter: { type: "ecard", v: x.c, merge: state.merge } })).join("")
+    : `<div class="empty">No enemy card shows up that often. Lower the minimum games.</div>`;
+  $("emore").hidden = all.length <= state.eshow;
+  $("emore").textContent = `Show all ${all.length}`;
+  bindRows($("ecards"));
+}
+
+/* ---------- enemy pairs ---------- */
+function renderPairs() {
+  const m = new Map();
+  for (const b of B) {
+    const cs = [...new Set(b.opp.map(key))].sort();
+    for (let i = 0; i < cs.length; i++) for (let j = i + 1; j < cs.length; j++) {
+      const k = cs[i] + "\u0000" + cs[j]; if (!m.has(k)) m.set(k, []); m.get(k).push(b);
+    }
+  }
+  const all = [...m].map(([k, bs]) => ({ v: k.split("\u0000"), t: tally(bs) })).filter((x) => x.t.n >= state.pmin)
+    .sort(sorter(state.psort)).slice(0, 10);
+  $("pairs").innerHTML = all.length ? all.map((x) => rowHTML({ name: x.v.join(" + "), sub: `together in ${x.t.n} games`, t: x.t,
+    icon: `<span class="deck sm">${x.v.map((c) => cardTile(c, "sm")).join("")}</span>`,
+    filter: { type: "pair", v: x.v, merge: state.merge } })).join("")
+    : `<div class="empty">No pair shows up that often yet. Lower the minimum games.</div>`;
+  bindRows($("pairs"));
+}
+
+/* ---------- archetypes ---------- */
+function renderArchs() {
+  const all = groupBy(B, (b) => b.arch).sort((a, b) => a.t.wr - b.t.wr || b.t.n - a.t.n);
+  $("archs").innerHTML = all.map((x) => rowHTML({ name: x.k, sub: `${x.t.n} game${x.t.n === 1 ? "" : "s"}`, t: x.t,
+    filter: { type: "arch", v: x.k } })).join("");
+  bindRows($("archs"));
+}
+
+/* ---------- factors ---------- */
+const avg = (a) => { const v = a.filter((x) => x != null); return v.length ? v.reduce((s, x) => s + x, 0) / v.length : null; };
+function levelBucket(b) {
+  const d = avg(b.myLv) - avg(b.oppLv);
+  if (d >= 0.5) return "You had higher levels";
+  if (d <= -0.5) return "They had higher levels";
+  return "About even levels";
+}
+function renderFactors() {
+  const order = ["You had higher levels", "About even levels", "They had higher levels"];
+  const lv = groupBy(B, levelBucket).sort((a, b) => order.indexOf(a.k) - order.indexOf(b.k));
+  $("levels").innerHTML = lv.map((x) => rowHTML({ name: x.k, sub: `${x.t.n} games, half a level or more apart`, t: x.t, filter: { type: "level", v: x.k } })).join("");
+  const tw = groupBy(B, (b) => b.oppTower).sort((a, b) => b.t.n - a.t.n);
+  $("towers").innerHTML = tw.map((x) => rowHTML({ name: x.k, sub: `${x.t.n} games`, t: x.t, filter: { type: "tower", v: x.k } })).join("");
+  bindRows($("levels")); bindRows($("towers"));
+
+  const wins = B.filter((b) => b.res === "W"), losses = B.filter((b) => b.res === "L");
+  const by = (list, field) => [3, 2, 1].map((n) => list.filter((b) => b[field] === n).length);
+  const stack = (counts, colors, labels) => {
+    const tot = counts.reduce((s, x) => s + x, 0) || 1;
+    return `<div class="stack">${counts.map((c, i) => c ? `<span style="width:${100 * c / tot}%;background:${colors[i]}" title="${labels[i]}: ${c}">${c}</span>` : "").join("")}</div>`;
+  };
+  const leakW = avg(wins.map((b) => b.myLeak)), leakL = avg(losses.map((b) => b.myLeak));
+  const box = (h, body, s) => `<div class="kpi"><span class="k">${h}</span>${body}<span class="s">${s}</span></div>`;
+  const wc = by(wins, "mc"), lc = by(losses, "oc");
+  $("ends").innerHTML =
+    box("Your wins", stack(wc, ["#ffd23f", "#49b2ff", "#1663c7"], ["3 crowns", "2 crowns", "1 crown"]), `${wc[0]} three-crowns, ${wc[1]} two, ${wc[2]} one`) +
+    box("Your losses", stack(lc, ["#b5192f", "#ff5269", "#ff97a5"], ["lost 3 crowns", "lost 2", "lost 1"]), `${lc[0]} got three-crowned, ${lc[1]} two, ${lc[2]} one`) +
+    box("Elixir you leaked", `<span class="v num">${leakW != null ? leakW.toFixed(1) : "?"} <span class="muted" style="font-size:16px">vs</span> <span class="loss">${leakL != null ? leakL.toFixed(1) : "?"}</span></span>`, "average in wins vs. losses");
+}
+
+/* ---------- battle log ---------- */
+function renderLog() {
+  const f = state.filter;
+  $("chips").innerHTML = f ? `<span class="chip">${esc(filterLabel(f))}<button type="button" aria-label="Clear filter" id="clear">×</button></span>` : `<span class="note">Showing all battles. Tap any row above to filter.</span>`;
+  if (f) $("clear").addEventListener("click", () => setFilter(null));
+  const list = B.filter((b) => matches(b, f)).reverse();
+  const t = tally(list);
+  const head = f ? `<div class="note num">${list.length} battles · ${t.w}–${t.l} · ${pct(t.w, t.n)}% · ${signed(t.net)} trophies</div>` : "";
+  $("battles").innerHTML = head + list.slice(0, state.lshow).map((b) => {
+    const when = new Date(b.t).toLocaleString(undefined, { month: "short", day: "numeric", hour: "numeric", minute: "2-digit" });
+    return `<div class="battle ${b.res}"><div class="badge">${b.res === "W" ? "WIN" : b.res === "L" ? "LOSS" : "DRAW"}<small class="num">${b.mc}–${b.oc}</small></div>` +
+      `<div class="who"><div class="n">${esc(b.oppName)} <span>${esc(b.arch)} · ${when}</span></div><div class="deck sm">${b.opp.map((c) => cardTile(c, "sm")).join("")}</div></div>` +
+      `<div class="tr num ${b.dtr >= 0 ? "pos" : "neg"}">${signed(b.dtr)}<small>${(b.tr + b.dtr).toLocaleString()}</small></div></div>`;
+  }).join("");
+  $("lmore").hidden = list.length <= state.lshow;
+}
+
+function renderAllRows() { renderDeck(); renderMyCards(); renderEnemy(); renderPairs(); renderArchs(); renderFactors(); }
+
+/* ---------- controls ---------- */
+function seg(id, prop, after) {
+  $(id).querySelectorAll("button").forEach((btn) => btn.addEventListener("click", () => {
+    state[prop] = btn.dataset.v;
+    $(id).querySelectorAll("button").forEach((b) => b.setAttribute("aria-pressed", b === btn));
+    after();
+  }));
+}
+seg("csort", "csort", renderMyCards);
+seg("esort", "esort", renderEnemy);
+seg("psort", "psort", renderPairs);
+$("emin").addEventListener("input", (e) => { state.emin = +e.target.value; $("eminv").textContent = state.emin; renderEnemy(); });
+$("pmin").addEventListener("input", (e) => { state.pmin = +e.target.value; $("pminv").textContent = state.pmin; renderPairs(); });
+$("emerge").addEventListener("change", (e) => { state.merge = e.target.checked; if (state.filter && "merge" in state.filter) state.filter = null; renderEnemy(); renderPairs(); renderLog(); });
+$("emore").addEventListener("click", () => { state.eshow = 999; renderEnemy(); });
+$("lmore").addEventListener("click", () => { state.lshow += 25; renderLog(); });
+
+renderHeader(); renderTips(); renderAllRows(); renderLog(); showTab();
+let rz; new ResizeObserver(() => { clearTimeout(rz); rz = setTimeout(renderChart, 120); }).observe($("trchart"));
+</script>

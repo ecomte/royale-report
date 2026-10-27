@@ -1,0 +1,91 @@
+# The Royale Report
+
+**Open it: [ecomte.github.io/royale-report](https://ecomte.github.io/royale-report/)**. One page each for E and Ryan, with a switch at the top to go between them.
+
+Clash Royale battle stats for E and Ryan: trophy road, win rate per card in your deck, the enemy cards and combos that beat you most, win rate by enemy deck type, and a filterable battle log. Tap **Refresh** (or just open the page) to pull your newest battles from the official Clash Royale API.
+
+This repository is the GitHub version of the Royale Report. It began as scripts run by hand on a Mac, with the page republished by hand afterward. Here the same Python runs on GitHub's machines and publishes to a free GitHub Pages site, so either of you can refresh it from your phone without the Mac.
+
+## How it's set up
+
+```
+Refresh tap / page open / daily ──► GitHub Actions ──► cr_collect.py (new battles → data/)
+                                                   └─► cr_dashboard.py (pages) ──► GitHub Pages
+                                                                                   ├─ /e/
+                                                                                   └─ /ryan/
+```
+
+- **Hosting:** GitHub Pages, deployed from GitHub Actions (`.github/workflows/build.yml`). `https://ecomte.github.io/royale-report/e/` and `.../ryan/`.
+- **Refresh button:** starts the workflow through GitHub's API, waits for it (about a minute), then reloads with the new stats. One refresh updates both players. Opening a page also starts a refresh, unless the page was built or refreshed from that device in the last 10 minutes. If a build is already running, the page waits for that one instead of starting another. Code: `web/refresh.js`.
+- **Why it needs a token:** the Clash Royale API key has to stay secret, so the browser can't call Clash Royale itself. Only the workflow can, and starting a workflow needs a GitHub token. Each device saves one in the browser, once (see [Tokens](#tokens)).
+- **Daily build:** once a day at 09:00 UTC (5 AM Eastern in summer, 4 AM in winter). The API only remembers each player's last 25 battles, so this keeps history from being lost on days nobody opens the page.
+- **History:** every run commits new battles to `data/<player>/battles.csv` on `main` ("Save new battles" commits from github-actions). That's the whole history; the API can't give older battles back.
+- **Secrets:** one, `CR_API_TOKEN` (the Clash Royale API key). Calls go through the RoyaleAPI proxy (`proxy.royaleapi.dev`), so the key's allowed IP is `45.79.218.79` and it works from GitHub's machines.
+- **Players:** `config.json` lists the pages (player folder, display name, URL path) and `players.json` their tags. Adding a friend is a line in each.
+- **Branches:** `main` is what's deployed. Work happens on `feature/RR-<n>-...` branches and merges through `develop`. Builds run on any branch so a feature branch can be checked from the Actions tab; only `main` saves battles and deploys.
+
+## First-time setup
+
+1. **API key secret.** Repo **Settings › Secrets and variables › Actions › New repository secret**. Name `CR_API_TOKEN`, value: the key from [developer.clashroyale.com](https://developer.clashroyale.com) (allowed IP `45.79.218.79`, the same key the Mac uses in `.tokens/cr_api_token`).
+2. **Pages.** Repo **Settings › Pages**, under **Build and deployment › Source** pick **GitHub Actions**.
+3. **First build.** **Actions › Refresh battles and deploy › Run workflow** on `main`. After about a minute the site is live.
+4. **Tokens** for E and Ryan, below.
+
+## Tokens
+
+Make one token per person, so either can be cancelled without touching the other.
+
+1. On GitHub: profile picture › **Settings › Developer settings › Personal access tokens › Fine-grained tokens › Generate new token**.
+2. Name it (`Royale Report - E`, `Royale Report - Ryan`), set **Expiration** to a year (or the longest it allows).
+3. **Repository access:** *Only select repositories* › `royale-report`.
+4. **Permissions › Repository permissions › Actions: Read and write.** Nothing else is needed (Metadata: Read is added automatically).
+5. Generate and copy it (it starts with `github_pat_`).
+
+**E:** open your page, tap **Refresh**, paste the token. That device remembers it.
+
+**Ryan:** send him a personal link with his token on the end, after `#token=`:
+
+```
+https://ecomte.github.io/royale-report/ryan/#token=github_pat_...
+```
+
+Opening it saves the token and removes it from the address bar. If his browser ever forgets it, he opens the same link again. Saving it to his home screen (Share › Add to Home Screen) also stops iPhone Safari from clearing it after a week away.
+
+Keep the links private: anyone with a token can start refreshes (that's all it can do). To cancel one, delete it on the same GitHub page; the page then asks for a new one.
+
+When a token expires, the page says so and asks for a new one. Make a new one the same way.
+
+## Run it locally
+
+Python 3 with the standard library only.
+
+```
+python3 build_site.py --no-fetch --serve   # build site/ from the saved CSVs, serve at http://localhost:8000
+python3 build_site.py                      # same, but fetch new battles first (needs the key)
+python3 run_all.py                         # just fetch everyone's battles
+python3 cr_dashboard.py me --name E        # one standalone dashboard page at data/me/dashboard.html
+```
+
+Locally the key is read from `CR_API_TOKEN` or `.tokens/cr_api_token` (git ignores `.tokens/`). The local site's Refresh button starts the real GitHub build.
+
+## What's here
+
+| Path | What it is |
+|---|---|
+| `cr_collect.py` | Fetches a player's battle log, merges new battles into `data/<player>/battles.csv`, rewrites `STATS.md`. |
+| `run_all.py` | `cr_collect.py` for everyone in `players.json`. |
+| `cr_dashboard.py` | Builds one player's dashboard page from their CSV. |
+| `dashboard_template.html` | The dashboard's look. Edit this to change the page. |
+| `build_site.py` | What Actions runs: fetch, build every page into `site/`, add the player switch and Refresh bar. |
+| `web/` | `refresh.js` and `refresh.css` (the bar at the top), `favicon.svg`. |
+| `config.json` | Repo, workflow, and the pages to build. |
+| `players.json` | Player folder → tag. Tags use the digit 0, never the letter O. |
+| `data/<player>/` | `battles.csv` (every saved battle) and `STATS.md`. Written by the scripts, not by hand. |
+
+Clan Wars boat battles and duels are skipped for everyone (`EXCLUDED_TYPES` in `cr_collect.py`).
+
+## Troubleshooting
+
+- **"Last refresh couldn't reach Clash Royale"**: the build ran but the API refused. The Actions run shows a warning with the reason. 403 means the key's allowed IP isn't `45.79.218.79`, or the `CR_API_TOKEN` secret is wrong or missing.
+- **"That token can't run builds for this site"**: the token is for another repo or lacks *Actions: Read and write*.
+- **Refresh worked but the page didn't change**: there were no new battles, or Pages took longer than usual. Reload in a minute.

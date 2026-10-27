@@ -1,0 +1,9 @@
+{
+  "repo": "ecomte/royale-report",
+  "workflow": "build.yml",
+  "branch": "main",
+  "pages": [
+    {"player": "me", "name": "E", "path": "e"},
+    {"player": "ryan", "name": "Ryan", "path": "ryan"}
+  ]
+}
