@@ -80,6 +80,7 @@ button, select, input { font-family: inherit; }
 }
 .plate-name { min-width: 0; flex: 1 1 220px; }
 .plate-name h1 { font-size: clamp(28px, 5vw, 40px); color: var(--gold); line-height: 1.05; }
+.plate-name h1 .who { display: block; font-size: .72em; color: var(--ink); margin-top: 2px; }
 .plate-name .sub { color: var(--muted); font-weight: 700; }
 .trophy-now { display: flex; align-items: center; gap: 8px; font-family: var(--font-display); font-size: 30px; color: var(--gold); }
 .trophy-now svg { width: 30px; height: 30px; }
@@ -298,8 +299,8 @@ footer { text-align: center; color: var(--muted); font-size: 12px; }
     <div class="kpis" id="kpis"></div>
     <nav class="jump" aria-label="Sections" id="tabs">
       <a href="#scout">Scouting report</a><a href="#deck">Your deck</a><a href="#cards">Your cards</a>
-      <a href="#enemy">Enemy cards</a><a href="#combos">Enemy combos</a><a href="#types">Deck types</a>
-      <a href="#factors">What decides games</a><a href="#log">Battle log</a><a href="#road">Trophy road</a>
+      <a href="#enemy">Enemy cards</a><a href="#combos">Enemy combos</a>
+      <a href="#log">Battle log</a>
       <a href="#all" class="all">Show all</a>
     </nav>
   </header>
@@ -366,7 +367,7 @@ footer { text-align: center; color: var(--muted); font-size: 12px; }
     </div>
   </section>
 
-  <section class="panel" id="types">
+  <section class="panel" id="types" data-off>
     <div class="panel-head"><h2 class="outline">Deck types you face</h2></div>
     <div class="panel-body">
       <p class="note">Each enemy deck is sorted by its main win condition (Hog Rider, Goblin Barrel, Golem and so on).</p>
@@ -374,7 +375,7 @@ footer { text-align: center; color: var(--muted); font-size: 12px; }
     </div>
   </section>
 
-  <section class="panel" id="factors">
+  <section class="panel" id="factors" data-off>
     <div class="panel-head"><h2 class="outline">What decides your games</h2></div>
     <div class="panel-body">
       <div class="two">
@@ -394,7 +395,7 @@ footer { text-align: center; color: var(--muted); font-size: 12px; }
     </div>
   </section>
 
-  <section class="panel" id="road">
+  <section class="panel" id="road" data-off>
     <div class="panel-head"><h2 class="outline">Trophy road</h2>
       <div class="legend"><span><i style="background:var(--blue)"></i>Win</span><span><i style="background:var(--red)"></i>Loss</span></div></div>
     <div class="panel-body"><div class="chart" id="trchart"></div></div>
@@ -485,33 +486,45 @@ function setFilter(f, jump) {
   state.filter = f; state.lshow = 15;
   renderAllRows(); renderLog();
   if (!jump || !f) return;
-  if (currentTab() !== "all") { location.hash = "log"; return; }
+  if (currentTab() !== "all") goTab("log");
   $("log").scrollIntoView({ behavior: matchMedia("(prefers-reduced-motion: reduce)").matches ? "auto" : "smooth" });
 }
 
 /* ---------- tabs: one section at a time, or all of them ---------- */
 const TABS = [...document.querySelectorAll("#tabs a")].map((a) => a.hash.slice(1));
-function currentTab() { const h = location.hash.slice(1); return TABS.includes(h) ? h : "scout"; }
+function currentTab() { const h = location.hash.slice(1); return TABS.includes(h) ? h : "all"; }
 function showTab() {
   const tab = currentTab();
-  document.querySelectorAll("section.panel").forEach((sec) => { sec.hidden = tab !== "all" && sec.id !== tab; });
+  // Sections marked data-off are switched off for now: no tab, and hidden under Show all too.
+  document.querySelectorAll("section.panel").forEach((sec) => {
+    sec.hidden = sec.hasAttribute("data-off") || (tab !== "all" && sec.id !== tab);
+  });
   document.querySelectorAll("#tabs a").forEach((a) => {
     if (a.hash.slice(1) === tab) a.setAttribute("aria-current", "page"); else a.removeAttribute("aria-current");
   });
   if (tab === "road" || tab === "all") renderChart();
-  window.scrollTo(0, 0);
 }
+// Switch tabs without the browser's jump to the section, so the page stays where it is.
+function goTab(tab) {
+  if (currentTab() !== tab) history.pushState(null, "", "#" + tab);
+  showTab();
+}
+document.querySelectorAll("#tabs a").forEach((a) => a.addEventListener("click", (e) => {
+  e.preventDefault();
+  goTab(a.hash.slice(1));
+}));
 window.addEventListener("hashchange", showTab);
+window.addEventListener("popstate", showTab);
 
 /* ---------- header ---------- */
 function renderHeader() {
   const p = DATA.player;
   $("ini").textContent = (p.name || "?").slice(0, 1).toUpperCase();
-  $("pname").textContent = "The Royale Report - " + p.name;
-  const first = new Date(B[0].t), last = new Date(B[B.length - 1].t);
+  $("pname").innerHTML = 'The Royale Report<span class="who"></span>';
+  $("pname").querySelector(".who").textContent = p.name;
   const fmt = (d) => d.toLocaleDateString(undefined, { month: "short", day: "numeric" });
   const lastB = B[B.length - 1];
-  $("psub").textContent = `${p.tag ? p.tag + " · " : ""}${B.length} ladder battles · ${fmt(first)} to ${fmt(last)} · ${lastB.arena}`;
+  $("psub").textContent = `${p.tag ? p.tag + " · " : ""}${B.length} ladder battles · Updated ${fmt(new Date(DATA.generated))} · ${lastB.arena}`;
   const nowTr = lastB.tr + lastB.dtr;
   $("trnow").innerHTML = TROPHY + `<span class="num">${nowTr.toLocaleString()}</span>`;
 
