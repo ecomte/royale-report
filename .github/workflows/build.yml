@@ -1,8 +1,9 @@
-# Pulls new battles for everyone in config.json, saves them to data/, rebuilds the pages
+# Pulls new battles for everyone in config.json, saves them to the battle-data branch, rebuilds the pages
 # and publishes them to GitHub Pages.
 # Runs when someone taps Refresh (or opens a page), once a day, on pushes to main, and by
 # hand from the Actions tab ("Run workflow"). Builds run on any branch so a feature branch
 # can be checked; only main saves battles and deploys.
+# Pushes to battle-data don't start this workflow (only main does), so saving never loops.
 name: Refresh battles and deploy
 
 on:
@@ -26,9 +27,21 @@ jobs:
     runs-on: ubuntu-latest
     timeout-minutes: 10
     permissions:
-      contents: write   # to commit new battles back to main
+      contents: write   # to save new battles to the battle-data branch
     steps:
-      - uses: actions/checkout@v4
+      - uses: actions/checkout@v5
+
+      # Battle history lives on its own battle-data branch (only data/ is on it), because
+      # main only takes changes through pull requests. Start from the newest saved copy;
+      # until that branch exists, the data/ in main is the starting point.
+      - name: Load saved battles
+        run: |
+          if git fetch --depth=1 origin battle-data; then
+            git checkout FETCH_HEAD -- data
+            echo "Using battles saved on battle-data"
+          else
+            echo "No battle-data branch yet, starting from main's data/"
+          fi
 
       # Calls go through the RoyaleAPI proxy, so the key's allowed IP (45.79.218.79) works from
       # GitHub's machines too. The key is the CR_API_TOKEN repo secret and never leaves the run.
@@ -37,16 +50,29 @@ jobs:
           CR_API_TOKEN: ${{ secrets.CR_API_TOKEN }}
         run: python3 build_site.py
 
+      # If saving fails, still publish the pages; the next run fetches the same battles again
+      # (the API keeps the last 25), so nothing is lost unless saving keeps failing.
       - name: Save new battles
         if: github.ref == 'refs/heads/main'
+        continue-on-error: true
         run: |
-          git add data
+          bd="$RUNNER_TEMP/battle-data"
+          git worktree add --detach "$bd"
+          cd "$bd"
+          if git fetch --depth=1 origin battle-data; then
+            git checkout -q FETCH_HEAD
+          else
+            git checkout -q --orphan battle-data
+            git rm -rqf .
+          fi
+          rm -rf data
+          cp -R "$GITHUB_WORKSPACE/data" data
+          git add -A data
           if git diff --cached --quiet; then echo "No new battles"; exit 0; fi
           git -c user.name="github-actions[bot]" \
               -c user.email="41898282+github-actions[bot]@users.noreply.github.com" \
-              commit -m "Save new battles"
-          git pull --rebase origin main
-          git push origin HEAD:main
+              commit -q -m "Save new battles"
+          git push origin HEAD:refs/heads/battle-data
 
       - uses: actions/upload-pages-artifact@v3
         with:
