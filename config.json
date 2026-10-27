@@ -1,0 +1,10 @@
+{
+  "version": "0.0.1",
+  "repo": "ecomte/royale-report",
+  "workflow": "build.yml",
+  "branch": "main",
+  "pages": [
+    {"player": "me", "name": "Alpha", "path": "e"},
+    {"player": "ryan", "name": "OmNs_OaTs", "path": "ryan"}
+  ]
+}
