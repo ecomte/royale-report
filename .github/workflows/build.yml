@@ -1,0 +1,67 @@
+# Pulls new battles for everyone in config.json, saves them to data/, rebuilds the pages
+# and publishes them to GitHub Pages.
+# Runs when someone taps Refresh (or opens a page), once a day, on pushes to main, and by
+# hand from the Actions tab ("Run workflow"). Builds run on any branch so a feature branch
+# can be checked; only main saves battles and deploys.
+name: Refresh battles and deploy
+
+on:
+  workflow_dispatch:
+  schedule:
+    # Once a day at 09:00 UTC (5 AM Eastern in EDT, 4 AM in EST), so battles still get saved
+    # on days nobody opens the page. The API only keeps each player's last 25 battles.
+    - cron: "0 9 * * *"
+  push:
+    branches: [main]
+
+permissions:
+  contents: read
+
+concurrency:
+  group: pages
+  cancel-in-progress: false
+
+jobs:
+  build:
+    runs-on: ubuntu-latest
+    timeout-minutes: 10
+    permissions:
+      contents: write   # to commit new battles back to main
+    steps:
+      - uses: actions/checkout@v4
+
+      # Calls go through the RoyaleAPI proxy, so the key's allowed IP (45.79.218.79) works from
+      # GitHub's machines too. The key is the CR_API_TOKEN repo secret and never leaves the run.
+      - name: Pull new battles and build pages
+        env:
+          CR_API_TOKEN: ${{ secrets.CR_API_TOKEN }}
+        run: python3 build_site.py
+
+      - name: Save new battles
+        if: github.ref == 'refs/heads/main'
+        run: |
+          git add data
+          if git diff --cached --quiet; then echo "No new battles"; exit 0; fi
+          git -c user.name="github-actions[bot]" \
+              -c user.email="41898282+github-actions[bot]@users.noreply.github.com" \
+              commit -m "Save new battles"
+          git pull --rebase origin main
+          git push origin HEAD:main
+
+      - uses: actions/upload-pages-artifact@v3
+        with:
+          path: site
+
+  deploy:
+    if: github.ref == 'refs/heads/main'
+    needs: build
+    runs-on: ubuntu-latest
+    permissions:
+      pages: write
+      id-token: write
+    environment:
+      name: github-pages
+      url: ${{ steps.deployment.outputs.page_url }}
+    steps:
+      - id: deployment
+        uses: actions/deploy-pages@v4

@@ -1,6 +1,6 @@
 # The Royale Report
 
-[![Release](https://img.shields.io/badge/release-v0.0.1-green)](https://github.com/ecomte/royale-report/releases)
+[![Release](https://img.shields.io/badge/release-v0.2.0-green)](https://github.com/ecomte/royale-report/releases)
 
 **Open it: [ecomte.github.io/royale-report](https://ecomte.github.io/royale-report/)**. One page each for E and Ryan, with a switch at the top to go between them.
 
