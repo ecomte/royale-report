@@ -15,7 +15,9 @@ import sys
 
 sys.dont_write_bytecode = True  # keep __pycache__ out of the folder
 
-from cr_collect import CollectError, collect, load_players, read_token, stamp, summary_line
+from cr_collect import (DEFAULT_BASE, CollectError, collect, fetch_battlelog, load_players,
+                        read_token, stamp, summary_line)
+from cr_duels import collect_duels, duel_summary
 
 
 def main():
@@ -34,7 +36,12 @@ def main():
     failed = 0
     for name, tag in players.items():
         try:
-            print("  " + summary_line(collect(name, tag, token, args.stats_only)))
+            battles = None if args.stats_only else fetch_battlelog(DEFAULT_BASE, token, tag)
+            print("  " + summary_line(collect(name, tag, token, args.stats_only, battles=battles)))
+            # Duels go to their own duels.csv / DUEL_STATS.md (see cr_duels.py).
+            line = duel_summary(collect_duels(name, tag, battles=battles, rebuild=args.stats_only))
+            if line:
+                print("  " + line)
         except CollectError as e:
             failed += 1
             print(f"  {name:<8} FAILED: {e}")

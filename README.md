@@ -31,6 +31,7 @@ Refresh tap / page open / daily ──► GitHub Actions ──► cr_collect.py
 - **Hosting:** GitHub Pages, deployed from GitHub Actions (`.github/workflows/build.yml`). `https://ecomte.github.io/royale-report/e/` and `.../ryan/`.
 - **Refresh button:** starts the workflow through GitHub's API, waits for it (about a minute), then reloads with the new stats. One refresh updates both players. Opening a page also starts a refresh, unless the page was built or refreshed from that device in the last 10 minutes. If a build is already running, the page waits for that one instead of starting another. Code: `web/refresh.js`.
 - **Why it needs a token:** the Clash Royale API key has to stay secret, so the browser can't call Clash Royale itself. Only the workflow can, and starting a workflow needs a GitHub token. Each device saves one in the browser, once (see [Tokens](#tokens)).
+- **Duels (tracked, not shown yet):** Clan Wars duels are best of 3 with a different deck each round, so they stay out of every regular stat and page. `cr_duels.py` saves them on their own from the same API call: `data/<player>/duels.csv` (one row per duel, with each round's decks, crowns and result), `duels_raw.jsonl` (the API's full record, so the CSV can be re-parsed with `python3 cr_duels.py --rebuild`) and `DUEL_STATS.md` (duel and round record, sweeps, recent duels, round win rate per deck). A Duels tab can come later once there's enough data.
 - **Daily build:** once a day at 09:00 UTC (5 AM Eastern in summer, 4 AM in winter). The API only remembers each player's last 25 battles, so this keeps history from being lost on days nobody opens the page.
 - **History:** every run that finds battles commits them to the **`battle-data`** branch ("Save new battles" commits from github-actions), which holds only `data/`. `main` only takes changes through pull requests, so the build can't save there. Each run starts from `battle-data`'s copy of `data/`; the `data/` in `main` is just the starting point from before hosting. To grab the latest history locally: `git fetch origin battle-data && git checkout origin/battle-data -- data`. If saving ever fails, the pages still publish and the next run tries again.
 - **Secrets:** one, `CR_API_TOKEN` (the Clash Royale API key). Calls go through the RoyaleAPI proxy (`proxy.royaleapi.dev`), so the key's allowed IP is `45.79.218.79` and it works from GitHub's machines.
@@ -87,6 +88,7 @@ Locally the key is read from `CR_API_TOKEN` or `.tokens/cr_api_token` (git ignor
 | Path | What it is |
 |---|---|
 | `cr_collect.py` | Fetches a player's battle log, merges new battles into `data/<player>/battles.csv`, rewrites `STATS.md`. |
+| `cr_duels.py` | Clan Wars duels, kept separate: `duels.csv`, `duels_raw.jsonl`, `DUEL_STATS.md`. Run by `run_all.py` and `build_site.py` too. |
 | `run_all.py` | `cr_collect.py` for everyone in `players.json`. |
 | `cr_dashboard.py` | Builds one player's dashboard page from their CSV. |
 | `dashboard_template.html` | The dashboard's look. Edit this to change the page. |

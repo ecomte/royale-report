@@ -26,7 +26,9 @@ from pathlib import Path
 
 sys.dont_write_bytecode = True  # keep __pycache__ out of the folder
 
-from cr_collect import DATA_DIR, CollectError, collect, load_players, read_token, stamp, summary_line
+from cr_collect import (DATA_DIR, DEFAULT_BASE, CollectError, collect, fetch_battlelog, load_players,
+                        read_token, stamp, summary_line)
+from cr_duels import collect_duels, duel_summary
 from cr_dashboard import load_battles
 
 HERE = Path(__file__).resolve().parent
@@ -114,7 +116,7 @@ def log_update(player, battle_times):
 
 
 def fetch_all(pages):
-    """Pull new battles for every page's player. Returns {player: "ok" | error text}."""
+    """Pull new battles (and duels) for every page's player. Returns {player: "ok" | error text}."""
     try:
         players = load_players()
         token = read_token()
@@ -125,8 +127,13 @@ def fetch_all(pages):
     for p in pages:
         name = p["player"]
         try:
-            res = collect(name, players[name], token)
+            battles = fetch_battlelog(DEFAULT_BASE, token, players[name])
+            res = collect(name, players[name], token, battles=battles)
             print("  " + summary_line(res))
+            # Duels are tracked on their own (data/<player>/duels.csv), not shown on the pages yet.
+            line = duel_summary(collect_duels(name, players[name], battles=battles))
+            if line:
+                print("  " + line)
             status[name] = "ok"
             if res["new"]:
                 log_update(name, [r["battle_time_utc"] for r in res["new_battles"]])
