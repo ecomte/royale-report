@@ -1,10 +1,22 @@
 # The Royale Report
 
+[![Release](https://img.shields.io/badge/release-v0.0.1-green)](https://github.com/ecomte/royale-report/releases)
+
 **Open it: [ecomte.github.io/royale-report](https://ecomte.github.io/royale-report/)**. One page each for E and Ryan, with a switch at the top to go between them.
 
 Clash Royale battle stats for E and Ryan: trophy road, win rate per card in your deck, the enemy cards and combos that beat you most, win rate by enemy deck type, and a filterable battle log. Tap **Refresh** (or just open the page) to pull your newest battles from the official Clash Royale API.
 
 This repository is the GitHub version of the Royale Report. It began as scripts run by hand on a Mac, with the page republished by hand afterward. Here the same Python runs on GitHub's machines and publishes to a free GitHub Pages site, so either of you can refresh it from your phone without the Mac.
+
+## Releases
+
+| Version | What it added |
+|---|---|
+| 0.0.1 | The Mac scripts moved to GitHub: Actions builds and GitHub Pages hosting, a page each for E and Ryan with a switch between them, a landing page, the Refresh button (on tap and on page open) with per-device GitHub tokens and Ryan's token link, and a daily background build (RR-1). |
+
+Release notes for each version are on the [Releases page](https://github.com/ecomte/royale-report/releases). The version shown in each page's footer comes from `version` in `config.json`.
+
+Clan Wars boat battles and duels aren't counted in this version, for either player. Each page says so in its footer.
 
 ## How it's set up
 
@@ -15,6 +27,7 @@ Refresh tap / page open / daily ──► GitHub Actions ──► cr_collect.py
                                                                                    └─ /ryan/
 ```
 
+- **Landing page:** the site's root shows a button for each player with their record, win rate and trophies (`landing_template.html`).
 - **Hosting:** GitHub Pages, deployed from GitHub Actions (`.github/workflows/build.yml`). `https://ecomte.github.io/royale-report/e/` and `.../ryan/`.
 - **Refresh button:** starts the workflow through GitHub's API, waits for it (about a minute), then reloads with the new stats. One refresh updates both players. Opening a page also starts a refresh, unless the page was built or refreshed from that device in the last 10 minutes. If a build is already running, the page waits for that one instead of starting another. Code: `web/refresh.js`.
 - **Why it needs a token:** the Clash Royale API key has to stay secret, so the browser can't call Clash Royale itself. Only the workflow can, and starting a workflow needs a GitHub token. Each device saves one in the browser, once (see [Tokens](#tokens)).
@@ -41,7 +54,7 @@ Make one token per person, so either can be cancelled without touching the other
 4. **Permissions › Repository permissions › Actions: Read and write.** Nothing else is needed (Metadata: Read is added automatically).
 5. Generate and copy it (it starts with `github_pat_`).
 
-**E:** open your page, tap **Refresh**, paste the token. That device remembers it.
+**E:** open your page, tap **Refresh** (or the key button next to it), and paste the token. That device remembers it. The key button also replaces or removes a saved token.
 
 **Ryan:** send him a personal link with his token on the end, after `#token=`:
 
@@ -77,6 +90,7 @@ Locally the key is read from `CR_API_TOKEN` or `.tokens/cr_api_token` (git ignor
 | `cr_dashboard.py` | Builds one player's dashboard page from their CSV. |
 | `dashboard_template.html` | The dashboard's look. Edit this to change the page. |
 | `build_site.py` | What Actions runs: fetch, build every page into `site/`, add the player switch and Refresh bar. |
+| `landing_template.html` | The front page with a button per player. |
 | `web/` | `refresh.js` and `refresh.css` (the bar at the top), `favicon.svg`. |
 | `config.json` | Repo, workflow, and the pages to build. |
 | `players.json` | Player folder → tag. Tags use the digit 0, never the letter O. |

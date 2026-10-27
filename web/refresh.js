@@ -144,12 +144,23 @@
       '<div class="rr-inner">' +
       '<nav class="rr-players" aria-label="Player">' + links + "</nav>" +
       '<span class="rr-msg" aria-live="polite"></span>' +
+      '<button type="button" class="rr-key" title="Add or change your GitHub token" aria-label="GitHub token">' +
+      '<svg viewBox="0 0 24 24" aria-hidden="true"><circle cx="8" cy="12" r="4.5"/><path d="M12.5 12H21v3.5M17.5 12v2.5"/></svg></button>' +
       '<button type="button" class="rr-refresh">Refresh</button>' +
       "</div>";
     document.body.prepend(bar);
     btn = bar.querySelector(".rr-refresh");
     msg = bar.querySelector(".rr-msg");
     btn.addEventListener("click", () => refresh(false));
+    bar.querySelector(".rr-key").addEventListener("click", () => {
+      const had = !!getToken();
+      const t = prompt(had
+        ? "Paste a new GitHub token to replace the saved one, or leave it empty and tap OK to remove it."
+        : "Paste your GitHub token. This device only needs it once.");
+      if (t === null) return;   // Cancel: keep whatever is saved
+      setToken(t.trim() || null);
+      idle(t.trim() ? "Token saved." : "Token removed.");
+    });
     // Keep the open tab when switching players.
     bar.querySelectorAll(".rr-players a").forEach((a) =>
       a.addEventListener("click", () => { a.href = a.href.split("#")[0] + location.hash; }));
