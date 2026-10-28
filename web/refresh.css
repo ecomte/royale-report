@@ -21,18 +21,15 @@
   background: linear-gradient(180deg, var(--gold, #ffd23f), #f0a800); color: #3a2200;
   box-shadow: 0 2px 0 var(--gold-deep, #b97c00);
 }
+.rr-status { flex: 1; min-width: 0; display: grid; text-align: right; }
 .rr-msg {
-  flex: 1; min-width: 0; text-align: right;
   font-size: 13px; font-weight: 700; color: var(--muted, #a3b6df);
   overflow: hidden; text-overflow: ellipsis; white-space: nowrap;
 }
 .rr-msg.warn { color: var(--gold, #ffd23f); white-space: normal; font-size: 12px; line-height: 1.25; }
-.rr-key {
-  flex: none; width: 36px; height: 36px; padding: 0; cursor: pointer;
-  display: grid; place-items: center; border-radius: 10px;
-  background: rgba(5, 15, 45, .6); border: 1px solid var(--edge, #3d6dd0);
-}
-.rr-key svg { width: 20px; height: 20px; fill: none; stroke: var(--gold, #ffd23f); stroke-width: 2.2; stroke-linecap: round; stroke-linejoin: round; }
+/* Under the status line: why Refresh isn't instant (the build pulls battles and rebuilds every page). */
+.rr-hint { font-size: 11px; font-weight: 600; color: var(--muted, #a3b6df); opacity: .8; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+.rr-short { display: none; }
 .rr-refresh {
   font-family: var(--font-display, sans-serif); font-size: 15px; letter-spacing: .5px;
   color: #fff; cursor: pointer;
@@ -65,7 +62,11 @@ section[id] { scroll-margin-top: 64px; }
 @media (max-width: 560px) {
   .rr-inner { flex-wrap: wrap; row-gap: 6px; }
   .rr-players { margin-right: auto; }
-  .rr-msg { order: 9; flex: 1 1 60%; text-align: left; white-space: normal; font-size: 12px; }
+  .rr-status { order: 9; flex: 1 1 60%; text-align: left; }
+  .rr-msg { white-space: normal; font-size: 12px; }
+  .rr-long { display: none; }
+  .rr-short { display: inline; }
+  .rr-hint { white-space: normal; line-height: 1.3; }
   .rr-refresh { order: 10; }
 }
 

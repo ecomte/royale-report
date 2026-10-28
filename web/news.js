@@ -64,7 +64,7 @@
     histBtn.setAttribute("aria-label", "Refresh history");
     histBtn.innerHTML = '<svg viewBox="0 0 24 24" aria-hidden="true"><circle cx="12" cy="12" r="8.5"/>' +
       '<path d="M12 7.5V12l3 2"/></svg><span class="rr-dot" hidden></span>';
-    if (inner) inner.insertBefore(histBtn, inner.querySelector(".rr-key"));
+    if (inner) inner.insertBefore(histBtn, inner.querySelector(".rr-refresh"));
     const dot = histBtn.querySelector(".rr-dot");
     dot.hidden = !unseen.length;
 

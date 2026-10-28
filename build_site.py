@@ -155,7 +155,7 @@ def build(site, config, fetched):
         subprocess.run([sys.executable, str(HERE / "cr_dashboard.py"), p["player"],
                         "--name", p["name"], "--out", str(out)], check=True)
         rr = {
-            "repo": config["repo"], "workflow": config["workflow"], "branch": config["branch"],
+            "worker": config["worker"],
             "pages": nav, "current": p["path"], "generated": generated,
             "fetch": fetched.get(p["player"], "skipped"),
             "updates": load_updates(p["player"]),
