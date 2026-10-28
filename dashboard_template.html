@@ -522,9 +522,10 @@ function renderHeader() {
   $("ini").textContent = (p.name || "?").slice(0, 1).toUpperCase();
   $("pname").innerHTML = 'The Royale Report<span class="who"></span>';
   $("pname").querySelector(".who").textContent = p.name;
-  const fmt = (d) => d.toLocaleDateString(undefined, { month: "short", day: "numeric" });
+  // Date and time of the last update, in the viewer's time zone ("Oct 28, 3:02 AM EDT").
+  const fmtWhen = (d) => d.toLocaleString(undefined, { month: "short", day: "numeric", hour: "numeric", minute: "2-digit", timeZoneName: "short" });
   const lastB = B[B.length - 1];
-  $("psub").textContent = `${p.tag ? p.tag + " · " : ""}${B.length} ladder battles · Updated ${fmt(new Date(DATA.generated))} · ${lastB.arena}`;
+  $("psub").textContent = `${p.tag ? p.tag + " · " : ""}${B.length} ladder battles · Updated ${fmtWhen(new Date(DATA.generated))} · ${lastB.arena}`;
   const nowTr = lastB.tr + lastB.dtr;
   $("trnow").innerHTML = TROPHY + `<span class="num">${nowTr.toLocaleString()}</span>`;
 

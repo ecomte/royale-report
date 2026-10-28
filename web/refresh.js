@@ -31,11 +31,15 @@
     return Math.round(s / 86400) + " days ago";
   }
 
+  // "Oct 28, 3:02 AM EDT", in the viewer's time zone.
+  const when = (iso) => new Date(iso).toLocaleString(undefined,
+    { month: "short", day: "numeric", hour: "numeric", minute: "2-digit", timeZoneName: "short" });
+
   function idle(text) {
     btn.disabled = false;
     btn.textContent = "Refresh";
     bar.classList.remove("busy");
-    msg.textContent = text || "Updated " + ago(RR.generated);
+    msg.textContent = text || "Updated " + when(RR.generated) + " · " + ago(RR.generated);
     msg.classList.toggle("warn", !!text);
   }
 
