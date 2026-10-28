@@ -4,7 +4,7 @@
 
 **Open it: [ecomte.github.io/royale-report](https://ecomte.github.io/royale-report/)**. One page each for **Alpha** (E, `/e/`) and **OmNs_OaTs** (Ryan, `/ryan/`), with a switch at the top to go between them.
 
-Clash Royale battle stats for E and Ryan: a scouting report, win rate for your deck and each of your cards, the enemy cards and combos that beat you most, and a filterable battle log. Tap **Refresh** (or just open the page) to pull your newest battles from the official Clash Royale API, and a popup shows what came in since you last looked. Nobody needs a token: a free Cloudflare Worker starts the build for the site (see [Refresh service](#refresh-service)). The site also updates itself every day at 3 AM Eastern.
+Clash Royale battle stats for E and Ryan: a scouting report, win rate for your deck and each of your cards, the enemy cards and combos that beat you most, and a filterable battle log. Tap **Refresh** to pull your newest battles from the official Clash Royale API, and a popup shows what came in since you last looked. Nobody needs a token: a free Cloudflare Worker starts the build for the site (see [Refresh service](#refresh-service)). The site also updates itself every day at 3 AM Eastern.
 
 This repository is the GitHub version of the Royale Report. It began as scripts run by hand on a Mac, with the page republished by hand afterward. Here the same Python runs on GitHub's machines and publishes to a free GitHub Pages site, so either of you can refresh it from your phone without the Mac.
 
@@ -25,7 +25,7 @@ Clan Wars boat battles and duels aren't counted in any stats or pages, for eithe
 ## How it's set up
 
 ```
-Refresh tap / page open ──► Cloudflare Worker ──┐
+Refresh tap / script ─────► Cloudflare Worker ──┐
 Daily ──────────────────────────────────────────┴► GitHub Actions ──► cr_collect.py (new battles → data/)
                                                                    └─► cr_dashboard.py (pages) ──► GitHub Pages
                                                                                                    ├─ /e/
@@ -34,7 +34,7 @@ Daily ────────────────────────�
 
 - **Landing page:** the site's root shows a button for each player with their record, win rate and trophies (`landing_template.html`).
 - **Hosting:** GitHub Pages, deployed from GitHub Actions (`.github/workflows/build.yml`). `https://ecomte.github.io/royale-report/e/` and `.../ryan/`.
-- **Refresh button:** asks the refresh service to start the workflow, waits for it (about a minute), then reloads with the new stats. One refresh updates both players. Opening a page also starts a refresh, unless the page was built or refreshed from that device in the last 10 minutes. If a build is already running, the page waits for that one instead of starting another, and if one finished in the last 5 minutes it just loads that. Nobody needs a token. A note under the status line says Refresh takes about a minute and that the site updates on its own every day at 3 AM Eastern. Code: `web/refresh.js`.
+- **Refresh button:** asks the refresh service to start the workflow, waits for it (about a minute), then reloads with the new stats. One refresh updates both players. Opening a page never starts a build; builds only run from Refresh, `refresh_site.py`, the 3 AM daily build and pushes to `main`. If a build is already running, the page waits for that one instead of starting another, and if one finished in the last 5 minutes it just loads that. Nobody needs a token. A note under the status line says Refresh takes about a minute and that the site updates on its own every day at 3 AM Eastern. Code: `web/refresh.js`.
 - **Refresh service:** the Clash Royale API key has to stay secret, so the browser can't call Clash Royale itself. Only the workflow can, and starting a workflow needs a GitHub token. A free Cloudflare Worker (`worker/worker.js`, at `https://royale-refresh.ecomte.workers.dev`) holds that one token and starts the workflow for the pages, so it never reaches anyone's browser (see [Refresh service](#refresh-service)).
 - **Duels (tracked, not shown yet):** Clan Wars duels are best of 3 with a different deck each round, so they stay out of every regular stat and page. `cr_duels.py` saves them on their own from the same API call: `data/<player>/duels.csv` (one row per duel, with each round's decks, crowns and result), `duels_raw.jsonl` (the API's full record, so the CSV can be re-parsed with `python3 cr_duels.py --rebuild`) and `DUEL_STATS.md` (duel and round record, sweeps, recent duels, round win rate per deck). A Duels tab can come later once there's enough data.
 - **Daily build:** every day at 3 AM Eastern, summer and winter. GitHub schedules are in UTC, so `build.yml` has two (07:00 and 08:00 UTC) and a small `when` job skips whichever isn't 3 AM that day. GitHub sometimes starts scheduled runs a few minutes late. The API only remembers each player's last 25 battles, so this keeps history from being lost on days nobody opens the page.
