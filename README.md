@@ -20,7 +20,7 @@ This repository is the GitHub version of the Royale Report. It began as scripts 
 
 Release notes for each version are on the [Releases page](https://github.com/ecomte/royale-report/releases). The version shown in each page's footer comes from `version` in `config.json`.
 
-Clan Wars boat battles and duels aren't counted in any stats or pages, for either player, and each page says so in its footer. Duels are saved separately in the background (see Duels under How it's set up) for a future Duels tab.
+Clan Wars boat battles and duels aren't counted in any stats or pages, for either player. Each page's footer says boat battles are left out and duels are tracked but not analyzed or shown yet. Duels are saved separately in the background (see Duels under How it's set up) for a future Duels tab.
 
 ## How it's set up
 
