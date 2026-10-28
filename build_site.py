@@ -54,7 +54,7 @@ LANDING = HERE / "landing_template.html"
 # Bottom of every player page (and the landing page): what isn't counted, version, copyright.
 FOOTER = """
 <footer class="rr-foot">
-  <p>This version doesn't include Clan Wars boat battles or duels. Those modes are skipped for every player, so they aren't in any stats or the battle log.</p>
+  <p>This version doesn't include Clan Wars boat battles in any stats or the battle log. Clan Wars duels are being tracked for every player, but they aren't analyzed or shown here yet.</p>
   <p><a href="https://github.com/{repo}/releases">v{version}</a> · © 2026 E Comte · <a href="https://github.com/{repo}/blob/main/COPYRIGHT.md">Copyright</a></p>
   <p>Not affiliated with, endorsed, sponsored, or specifically approved by Supercell. <a href="https://supercell.com/en/fan-content-policy/">Fan Content Policy</a></p>
 </footer>
