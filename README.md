@@ -1,10 +1,10 @@
 # The Royale Report
 
-[![Release](https://img.shields.io/badge/release-v1.0.0-green)](https://github.com/ecomte/royale-report/releases)
+[![Release](https://img.shields.io/badge/release-v1.1.0-green)](https://github.com/ecomte/royale-report/releases)
 
 **Open it: [ecomte.github.io/royale-report](https://ecomte.github.io/royale-report/)**. One page each for **Alpha** (E, `/e/`) and **OmNs_OaTs** (Ryan, `/ryan/`), with a switch at the top to go between them.
 
-Clash Royale battle stats for E and Ryan: a scouting report, win rate for your deck and each of your cards, the enemy cards and combos that beat you most, and a filterable battle log. Tap **Refresh** (or just open the page) to pull your newest battles from the official Clash Royale API, and a popup shows what came in since you last looked.
+Clash Royale battle stats for E and Ryan: a scouting report, win rate for your deck and each of your cards, the enemy cards and combos that beat you most, and a filterable battle log. Tap **Refresh** (or just open the page) to pull your newest battles from the official Clash Royale API, and a popup shows what came in since you last looked. Nobody needs a token: a free Cloudflare Worker starts the build for the site (see [Refresh service](#refresh-service)). The site also updates itself every day at 3 AM Eastern.
 
 This repository is the GitHub version of the Royale Report. It began as scripts run by hand on a Mac, with the page republished by hand afterward. Here the same Python runs on GitHub's machines and publishes to a free GitHub Pages site, so either of you can refresh it from your phone without the Mac.
 
@@ -16,6 +16,7 @@ This repository is the GitHub version of the Royale Report. It began as scripts 
 | 0.2.0 | The build workflow and hosting settings (API key secret, Pages from Actions), and footer versions that match the release (RR-3). The first build couldn't save battles because `main` only takes pull requests. |
 | 0.3.0 | Battles save to their own `battle-data` branch so `main` stays protected, the site deploys even if saving fails, `actions/checkout` v5, and the cascade merge from `main` into `develop` (RR-4, RR-5). The first release that builds and deploys end to end. |
 | 1.0.0 | Pages open on Show all, and tabs no longer jump the page back to the top; Deck types, What decides games and Trophy road hidden for now; the player name on its own line under the title; "Updated <date>" in place of the date range; the new-battles popup and refresh history switched on in the hosted build; Clan Wars duels tracked in the background in their own files (RR-6). |
+| 1.1.0 | Refresh goes through a free Cloudflare Worker that holds the only GitHub token, so the token prompt, key button and Ryan's `#token=` link are gone; the Worker joins a running build and won't start a new one within 5 minutes of the last; `refresh_site.py` refreshes from a terminal; a note under Refresh says it takes about a minute and that the site updates daily at 3 AM Eastern; the daily build moved to 3 AM Eastern all year (RR-8). |
 
 Release notes for each version are on the [Releases page](https://github.com/ecomte/royale-report/releases). The version shown in each page's footer comes from `version` in `config.json`.
 
