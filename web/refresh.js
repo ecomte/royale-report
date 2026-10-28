@@ -3,15 +3,14 @@
  * Refresh asks the refresh service (a Cloudflare Worker, worker/worker.js) to
  * start the "build.yml" workflow on GitHub, which pulls new battles for
  * everyone, rebuilds the pages and republishes them. The Worker holds the
- * GitHub token, so nobody needs one here. Opening a page also refreshes it,
- * unless it was built in the last few minutes. window.RR (written by
+ * GitHub token, so nobody needs one here. Builds only run when someone taps
+ * Refresh (or runs refresh_site.py) and at 3 AM Eastern; opening a page never
+ * starts one. window.RR (written by
  * build_site.py) holds the settings.
  */
 (function () {
   "use strict";
   const RR = window.RR;
-  const LAST_KEY = "rr-last-refresh";   // when this device last started a refresh
-  const COOLDOWN_MS = 10 * 60 * 1000;   // skip the on-load refresh if the page is newer than this
   const POLL_MS = 5000;
   const GIVE_UP_MS = 6 * 60 * 1000;
 
@@ -19,7 +18,7 @@
 
   // Tokens from before the Worker: forget any saved one, and drop an old #token= link's token
   // from the address bar.
-  store((s) => s.removeItem("rr-github-token"));
+  store((s) => { s.removeItem("rr-github-token"); s.removeItem("rr-last-refresh"); });
   if (/(?:^#|&)token=/.test(location.hash)) history.replaceState(null, "", location.pathname + location.search);
 
   let bar, btn, msg;
@@ -59,7 +58,6 @@
 
   async function refresh() {
     const started = Date.now();
-    store((s) => s.setItem(LAST_KEY, String(started)));
     busy("Starting…");
     try {
       // Starts a build, or hands back the one already running (or just finished).
@@ -115,9 +113,6 @@
       ? "Last refresh couldn't reach Clash Royale. Showing saved battles."
       : "");
     setInterval(() => { if (!btn.disabled && !msg.classList.contains("warn")) idle(); }, 60000);
-
-    const last = Number(store((s) => s.getItem(LAST_KEY))) || 0;
-    if (Date.now() - Date.parse(RR.generated) > COOLDOWN_MS && Date.now() - last > COOLDOWN_MS) refresh();
   }
 
   if (document.readyState === "loading") document.addEventListener("DOMContentLoaded", render);
