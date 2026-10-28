@@ -1,6 +1,6 @@
 # Pulls new battles for everyone in config.json, saves them to the battle-data branch, rebuilds the pages
 # and publishes them to GitHub Pages.
-# Runs when someone taps Refresh (or opens a page), once a day, on pushes to main, and by
+# Runs when someone taps Refresh (or opens a page), every day at 3 AM Eastern, on pushes to main, and by
 # hand from the Actions tab ("Run workflow"). Builds run on any branch so a feature branch
 # can be checked; only main saves battles and deploys.
 # Pushes to battle-data don't start this workflow (only main does), so saving never loops.
@@ -9,9 +9,12 @@ name: Refresh battles and deploy
 on:
   workflow_dispatch:
   schedule:
-    # Once a day at 09:00 UTC (5 AM Eastern in EDT, 4 AM in EST), so battles still get saved
-    # on days nobody opens the page. The API only keeps each player's last 25 battles.
-    - cron: "0 9 * * *"
+    # Every day at 3 AM Eastern, so battles still get saved on days nobody opens the page (the API
+    # only keeps each player's last 25 battles). GitHub schedules are in UTC, so there are two:
+    # 07:00 UTC is 3 AM in summer (EDT) and 08:00 UTC is 3 AM in winter (EST). The "when" job
+    # skips whichever one isn't 3 AM that day. GitHub can start scheduled runs a few minutes late.
+    - cron: "0 7 * * *"
+    - cron: "0 8 * * *"
   push:
     branches: [main]
 
@@ -23,7 +26,25 @@ concurrency:
   cancel-in-progress: false
 
 jobs:
+  # Only for the daily schedule: go ahead if the schedule that fired is 3 AM Eastern today.
+  # It checks the schedule rather than the clock, since a late start shouldn't skip the day.
+  when:
+    if: github.event_name == 'schedule'
+    runs-on: ubuntu-latest
+    outputs:
+      go: ${{ steps.check.outputs.go }}
+    steps:
+      - id: check
+        env:
+          SCHEDULE: ${{ github.event.schedule }}
+        run: |
+          if [ "$(TZ=America/New_York date +%Z)" = EDT ]; then three="0 7 * * *"; else three="0 8 * * *"; fi
+          if [ "$SCHEDULE" = "$three" ]; then echo "go=true" >> "$GITHUB_OUTPUT"; else echo "Not 3 AM Eastern today, skipping"; fi
+
   build:
+    needs: when
+    # Refresh taps, pushes and hand runs skip "when" and always build.
+    if: ${{ !cancelled() && (needs.when.result == 'skipped' || needs.when.outputs.go == 'true') }}
     runs-on: ubuntu-latest
     timeout-minutes: 10
     permissions:
@@ -79,7 +100,8 @@ jobs:
           path: site
 
   deploy:
-    if: github.ref == 'refs/heads/main'
+    # Spelled out because a skipped "when" job would otherwise skip this one too.
+    if: ${{ !cancelled() && needs.build.result == 'success' && github.ref == 'refs/heads/main' }}
     needs: build
     runs-on: ubuntu-latest
     permissions:

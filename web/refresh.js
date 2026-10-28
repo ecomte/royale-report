@@ -1,32 +1,26 @@
 /* The Royale Report: player switch and Refresh button for the hosted pages.
  *
- * Refresh starts the "build.yml" workflow on GitHub, which pulls new battles
- * for everyone, rebuilds the pages and republishes them. Starting a workflow
- * needs a GitHub token, so each device keeps one in localStorage. A link
- * ending in #token=<token> saves it automatically, which is how Ryan's link
- * works. Opening a page also refreshes it, unless it was built in the last
- * few minutes. window.RR (written by build_site.py) holds the settings.
+ * Refresh asks the refresh service (a Cloudflare Worker, worker/worker.js) to
+ * start the "build.yml" workflow on GitHub, which pulls new battles for
+ * everyone, rebuilds the pages and republishes them. The Worker holds the
+ * GitHub token, so nobody needs one here. Opening a page also refreshes it,
+ * unless it was built in the last few minutes. window.RR (written by
+ * build_site.py) holds the settings.
  */
 (function () {
   "use strict";
   const RR = window.RR;
-  const TOKEN_KEY = "rr-github-token";
   const LAST_KEY = "rr-last-refresh";   // when this device last started a refresh
   const COOLDOWN_MS = 10 * 60 * 1000;   // skip the on-load refresh if the page is newer than this
   const POLL_MS = 5000;
   const GIVE_UP_MS = 6 * 60 * 1000;
-  const API = "https://api.github.com/repos/" + RR.repo + "/actions";
 
   function store(fn) { try { return fn(localStorage); } catch (e) { return null; } }
-  const getToken = () => store((s) => s.getItem(TOKEN_KEY));
-  const setToken = (t) => store((s) => (t ? s.setItem(TOKEN_KEY, t) : s.removeItem(TOKEN_KEY)));
 
-  // A #token=... link: save it, then drop it from the address bar (before the page reads its tab).
-  const m = location.hash.match(/(?:^#|&)token=([^&]+)/);
-  if (m) {
-    setToken(decodeURIComponent(m[1]).trim());
-    history.replaceState(null, "", location.pathname + location.search);
-  }
+  // Tokens from before the Worker: forget any saved one, and drop an old #token= link's token
+  // from the address bar.
+  store((s) => s.removeItem("rr-github-token"));
+  if (/(?:^#|&)token=/.test(location.hash)) history.replaceState(null, "", location.pathname + location.search);
 
   let bar, btn, msg;
 
@@ -54,59 +48,28 @@
     msg.textContent = text;
   }
 
-  async function gh(path, token, opts) {
-    const res = await fetch(API + path, Object.assign({
-      headers: {
-        Accept: "application/vnd.github+json",
-        Authorization: "Bearer " + token,
-        "X-GitHub-Api-Version": "2022-11-28",
-      },
-      cache: "no-store",
-    }, opts || {}));
-    if (res.status === 401) throw Object.assign(new Error("token"), { code: 401 });
-    if (res.status === 403 || res.status === 404) throw Object.assign(new Error("access"), { code: res.status });
-    if (!res.ok) throw new Error("GitHub said " + res.status);
-    return res.status === 204 ? null : res.json();
+  async function worker(path, opts) {
+    const res = await fetch(RR.worker + path, Object.assign({ cache: "no-store" }, opts || {}));
+    const body = await res.json().catch(() => ({}));
+    if (!res.ok) throw new Error(body.message || "The refresh service said " + res.status);
+    return body.run;
   }
 
-  const runs = (token) => gh("/workflows/" + RR.workflow + "/runs?per_page=10", token)
-    .then((d) => d.workflow_runs);
   const sleep = (ms) => new Promise((r) => setTimeout(r, ms));
 
-  async function refresh(auto) {
-    let token = getToken();
-    if (!token) {
-      if (auto) return;
-      token = (prompt("Paste your GitHub token. This device only needs it once.") || "").trim();
-      if (!token) return;
-      setToken(token);
-    }
+  async function refresh() {
     const started = Date.now();
     store((s) => s.setItem(LAST_KEY, String(started)));
     busy("Starting…");
     try {
-      // Join a build that's already running (someone else tapped, or the daily build) instead of
-      // queueing another one behind it.
-      const before = await runs(token);
-      let run = before.find((r) => r.status !== "completed");
-      if (!run) {
-        await gh("/workflows/" + RR.workflow + "/dispatches", token, {
-          method: "POST",
-          body: JSON.stringify({ ref: RR.branch }),
-        });
-        const seen = new Set(before.map((r) => r.id));
-        while (!run) {
-          if (Date.now() - started > 60000) throw new Error("GitHub didn't start the build");
-          await sleep(2000);
-          run = (await runs(token)).find((r) => !seen.has(r.id));
-        }
-      }
+      // Starts a build, or hands back the one already running (or just finished).
+      let run = await worker("/refresh", { method: "POST" });
       while (run.status !== "completed") {
         if (Date.now() - started > GIVE_UP_MS) throw new Error("The build is taking too long");
         const secs = Math.round((Date.now() - started) / 1000);
         busy((run.status === "queued" ? "Waiting for GitHub" : "Pulling new battles") + "… " + secs + "s");
         await sleep(POLL_MS);
-        run = await gh("/runs/" + run.id, token);
+        run = await worker("/status?run=" + run.id);
       }
       if (run.conclusion !== "success") throw new Error("The build failed on GitHub");
       // The run is done once the new pages are published. Wait for this page's copy to change.
@@ -122,15 +85,7 @@
       }
       idle("Already up to date");
     } catch (e) {
-      if (e.code === 401) {
-        setToken(null);
-        idle("Your token expired or is wrong. Tap Refresh to enter a new one.");
-      } else if (e.code) {
-        idle("That token can't run builds for this site. Tap Refresh to try a new one.");
-        setToken(null);
-      } else {
-        idle((e.message || "Couldn't refresh") + ". Try again in a minute.");
-      }
+      idle((e.message || "Couldn't refresh") + ". Try again in a minute.");
     }
   }
 
@@ -143,24 +98,15 @@
     bar.innerHTML =
       '<div class="rr-inner">' +
       '<nav class="rr-players" aria-label="Player">' + links + "</nav>" +
-      '<span class="rr-msg" aria-live="polite"></span>' +
-      '<button type="button" class="rr-key" title="Add or change your GitHub token" aria-label="GitHub token">' +
-      '<svg viewBox="0 0 24 24" aria-hidden="true"><circle cx="8" cy="12" r="4.5"/><path d="M12.5 12H21v3.5M17.5 12v2.5"/></svg></button>' +
+      '<div class="rr-status"><span class="rr-msg" aria-live="polite"></span>' +
+      '<small class="rr-hint"><span class="rr-long">Refresh takes about a minute to pull new battles and recalculate stats · Updates on its own every day at 3 AM Eastern</span>' +
+      '<span class="rr-short">Takes ~1 min · Auto-updates 3 AM ET</span></small></div>' +
       '<button type="button" class="rr-refresh">Refresh</button>' +
       "</div>";
     document.body.prepend(bar);
     btn = bar.querySelector(".rr-refresh");
     msg = bar.querySelector(".rr-msg");
-    btn.addEventListener("click", () => refresh(false));
-    bar.querySelector(".rr-key").addEventListener("click", () => {
-      const had = !!getToken();
-      const t = prompt(had
-        ? "Paste a new GitHub token to replace the saved one, or leave it empty and tap OK to remove it."
-        : "Paste your GitHub token. This device only needs it once.");
-      if (t === null) return;   // Cancel: keep whatever is saved
-      setToken(t.trim() || null);
-      idle(t.trim() ? "Token saved." : "Token removed.");
-    });
+    btn.addEventListener("click", refresh);
     // Keep the open tab when switching players.
     bar.querySelectorAll(".rr-players a").forEach((a) =>
       a.addEventListener("click", () => { a.href = a.href.split("#")[0] + location.hash; }));
@@ -171,7 +117,7 @@
     setInterval(() => { if (!btn.disabled && !msg.classList.contains("warn")) idle(); }, 60000);
 
     const last = Number(store((s) => s.getItem(LAST_KEY))) || 0;
-    if (Date.now() - Date.parse(RR.generated) > COOLDOWN_MS && Date.now() - last > COOLDOWN_MS) refresh(true);
+    if (Date.now() - Date.parse(RR.generated) > COOLDOWN_MS && Date.now() - last > COOLDOWN_MS) refresh();
   }
 
   if (document.readyState === "loading") document.addEventListener("DOMContentLoaded", render);

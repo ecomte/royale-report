@@ -1,8 +1,9 @@
 {
-  "version": "1.0.0",
+  "version": "1.1.0",
   "repo": "ecomte/royale-report",
   "workflow": "build.yml",
   "branch": "main",
+  "worker": "https://royale-refresh.ecomte.workers.dev",
   "pages": [
     {"player": "me", "name": "Alpha", "path": "e"},
     {"player": "ryan", "name": "OmNs_OaTs", "path": "ryan"}
