@@ -346,10 +346,10 @@ footer { text-align: center; color: var(--muted); font-size: 12px; }
       <h3>Answers to your toughest matchups</h3>
       <div id="answers"></div>
       <h3>Cards winning the most</h3>
-      <p class="note">Cards that aren't in your main deck, best first. Faded rows have fewer than 15 games.</p>
+      <p class="note">From your games only, on either side: cards that aren't in your main deck, best first. Faded rows have fewer than 15 games.</p>
       <div class="rows" id="sugtop"></div>
-      <h3>Cards struggling the most against</h3>
-      <p class="note">Worth a second look if one of these is in your deck.</p>
+      <h3>Cards struggling the most</h3>
+      <p class="note">From your games only, on either side. Worth a second look if one of these is in your deck.</p>
       <div class="rows" id="suglow"></div>
     </div>
   </section>
@@ -651,13 +651,15 @@ const POOL = DATA.pool || [];
 const OBS = [];   // one per deck per game: d = its cards, o = the other deck's cards, w = won, e = expected
 for (const p of POOL) for (const [my, opp, win] of p.games) {
   const a = new Set(my), b = new Set(opp);
-  OBS.push({ d: a, o: b, w: win, e: p.wr }, { d: b, o: a, w: 1 - win, e: 1 - p.wr });
+  OBS.push({ d: a, o: b, w: win, e: p.wr, p: p.key }, { d: b, o: a, w: 1 - win, e: 1 - p.wr, p: p.key });
 }
-// lift = wins above expected per game, shrunk toward 0 so a 3–0 card doesn't beat a 30–15 one
-function cardScores(vs, shrink) {
+// lift = wins above expected per game, shrunk toward 0 so a 3–0 card doesn't beat a 30–15 one.
+// mine = only this page's player's games (the winning/struggling lists); counters use everyone's.
+function cardScores(vs, shrink, mine) {
   const m = new Map();
   for (const x of OBS) {
     if (vs && !vs.every((c) => x.o.has(c))) continue;
+    if (mine && x.p !== DATA.player.key) continue;
     for (const c of x.d) { const s = m.get(c) || { w: 0, n: 0, e: 0 }; s.w += x.w; s.n++; s.e += x.e; m.set(c, s); }
   }
   return [...m].map(([c, s]) => ({ c, ...s, t: { w: s.w, l: s.n - s.w, n: s.n, wr: s.w / s.n }, lift: (s.w - s.e) / (s.n + shrink) }));
@@ -753,7 +755,7 @@ function renderSuggest() {
       sub: `in ${x.n} games` + (deck.includes(x.c) ? " · in your deck" : out ? ` · could replace your ${out}` : ""),
       foot: `${signed(extra)} win${Math.abs(extra) === 1 ? "" : "s"} vs. expected`, footCls: extra >= 0 ? "pos" : "neg" });
   };
-  const enough = all.filter((x) => x.n >= 8);
+  const enough = cardScores(null, 5, true).filter((x) => x.n >= 8);
   const top = enough.filter((x) => !deck.includes(x.c) && x.lift > 0).sort((a, b) => b.lift - a.lift).slice(0, 8);
   const low = enough.filter((x) => x.lift < 0).sort((a, b) => a.lift - b.lift).slice(0, 6);
   $("sugtop").innerHTML = top.length ? top.map(row).join("") : `<div class="empty">Not enough games yet.</div>`;
