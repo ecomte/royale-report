@@ -29,6 +29,7 @@ except ImportError:
 
 HERE = Path(__file__).resolve().parent
 TEMPLATE = HERE / "dashboard_template.html"
+COUNTERS = HERE / "counters.json"   # card counters from the Clash Royale Wiki, for Card suggestions
 
 # Elixir cost and rarity for the card tiles. Cards missing here still work,
 # their tile just has no elixir drop. Add new cards as they come out.
@@ -73,6 +74,23 @@ CARDS = {
     "Void": (3, "epic"), "Wall Breakers": (2, "epic"), "Witch": (5, "epic"),
     "Wizard": (5, "rare"), "X-Bow": (6, "epic"), "Zap": (2, "common"), "Zappies": (4, "rare"),
 }
+
+# Card types for the Card suggestions tab, so a swap idea trades a spell for a
+# spell and a building for a building. Everything not listed is a troop.
+SPELLS = {
+    "Arrows", "Barbarian Barrel", "Clone", "Earthquake", "Fireball", "Freeze", "Giant Snowball",
+    "Goblin Barrel", "Goblin Curse", "Graveyard", "Lightning", "Mirror", "Poison", "Rage", "Rocket",
+    "Royal Delivery", "The Log", "Tornado", "Vines", "Void", "Zap",
+}
+BUILDINGS = {
+    "Barbarian Hut", "Bomb Tower", "Cannon", "Elixir Collector", "Furnace", "Goblin Cage",
+    "Goblin Drill", "Goblin Hut", "Inferno Tower", "Mortar", "Tesla", "Tombstone", "X-Bow",
+}
+
+
+def kind(card):
+    return "spell" if card in SPELLS else "building" if card in BUILDINGS else "troop"
+
 
 # Opponent archetype = the first group whose win condition is in their deck.
 # Order matters: a Golem deck with a Lightning is still beatdown.
@@ -130,12 +148,39 @@ def load_battles(path):
             "tr": num(r["my_starting_trophies"], int), "dtr": num(r["my_trophy_change"], int) or 0,
             "my": my, "myLv": [num(x, int) for x in r["my_card_levels"].split("|")],
             "opp": opp, "oppLv": [num(x, int) for x in r["opp_card_levels"].split("|")],
-            "oppName": r["opp_name"], "oppTr": num(r["opp_starting_trophies"], int),
+            "oppName": r["opp_name"], "oppTag": r["opp_tag"], "oppTr": num(r["opp_starting_trophies"], int),
             "oppTower": r["opp_tower_troop"],
             "myLeak": num(r["my_elixir_leaked"]), "oppLeak": num(r["opp_elixir_leaked"]),
             "arch": archetype(opp),
         })
     return out
+
+
+def load_pool(names):
+    """Every tracked player's battles, for the Card suggestions tab.
+
+    Returns [{"name", "wr", "games": [[my cards, enemy cards, 1 if won else 0]]}] with Evos
+    merged and draws left out. A game between two tracked players is kept only once.
+    """
+    players = HERE / "players.json"
+    tags = json.loads(players.read_text()) if players.exists() else {}
+    pool, seen = [], set()
+    for player in sorted(tags):
+        csv_path = HERE / "data" / player / "battles.csv"
+        if not csv_path.exists():
+            continue
+        games = []
+        for b in load_battles(csv_path):
+            key = (b["t"], frozenset((tags[player], b["oppTag"])))
+            if b["res"] == "D" or key in seen:
+                continue
+            seen.add(key)
+            games.append([sorted({base(c) for c in b["my"]}), sorted({base(c) for c in b["opp"]}),
+                          int(b["res"] == "W")])
+        if games:
+            pool.append({"name": names.get(player, player.title()), "wr": sum(g[2] for g in games) / len(games),
+                         "games": games})
+    return pool
 
 
 def main():
@@ -157,13 +202,29 @@ def main():
     if players.exists():
         tag = json.loads(players.read_text()).get(args.player, "")
 
+    # Display names for the pooled players come from the site config (Alpha, OmNs_OaTs, ...).
+    names = {}
+    config = HERE / "config.json"
+    if config.exists():
+        names = {p["player"]: p["name"] for p in json.loads(config.read_text()).get("pages", [])}
+    if args.name:
+        names[args.player] = args.name
+
     battles = load_battles(csv_path)
+    pool = load_pool(names)
     used = {base(c) for b in battles for c in b["my"] + b["opp"]}
+    used |= {c for p in pool for g in p["games"] for c in g[0] + g[1]}
+    counters = json.loads(COUNTERS.read_text()) if COUNTERS.exists() else None
+    if counters:
+        used |= {c for k, v in counters["cards"].items() for c in [k, *v]}
     data = {
         "player": {"name": args.name or args.player.title(), "tag": tag},
         "generated": datetime.now(timezone.utc).isoformat(timespec="seconds"),
         "battles": battles,
-        "cards": {c: CARDS[c] for c in sorted(used) if c in CARDS},
+        "cards": {c: [*CARDS[c], kind(c)] if c in CARDS else [None, "", kind(c)] for c in sorted(used)},
+        "wincons": sorted(set().union(*(w for _, w in ARCHETYPES)) | {"Royal Giant"}),
+        "pool": pool,
+        "counters": counters,
     }
     blob = json.dumps(data, separators=(",", ":")).replace("</", "<\\/")
     page = TEMPLATE.read_text(encoding="utf-8").replace("/*__DATA__*/null", blob)

@@ -160,6 +160,21 @@ div.tip:hover { background: rgba(5, 15, 45, .45); }
 .tip-item:hover { background: rgba(5, 15, 45, .6); }
 .tip-item + .tip-item { border-top: 1px solid rgba(255, 255, 255, .08); border-radius: 0 0 8px 8px; }
 
+/* ---------- card suggestions ---------- */
+.answer { display: flex; align-items: center; gap: 10px; padding: 6px 0; }
+.answer + .answer { border-top: 1px solid rgba(255, 255, 255, .08); }
+.answer .t { display: grid; gap: 2px; min-width: 0; }
+.answer .h { font-size: 18px; }
+.answers-sub { font-size: 12px; text-transform: uppercase; letter-spacing: .08em; font-weight: 900; color: var(--muted); margin: 14px 0 8px; }
+.answers-sub:first-child { margin-top: 4px; }
+.wiki { display: grid; gap: 6px; padding-top: 8px; border-top: 1px solid rgba(255, 255, 255, .08); }
+.wiki .k { color: var(--gold); }
+.note a, .wiki a { color: var(--blue); }
+.swap { font-size: 13px; font-weight: 800; color: var(--gold); }
+.tag-in { font-size: 12px; font-weight: 800; color: var(--blue); }
+div.row { cursor: default; }
+div.row:hover { background: rgba(5, 15, 45, .3); }
+
 /* ---------- card tiles ---------- */
 .card {
   --r: var(--common);
@@ -306,7 +321,7 @@ footer { text-align: center; color: var(--muted); font-size: 12px; }
     </div>
     <div class="kpis" id="kpis"></div>
     <nav class="jump" aria-label="Sections" id="tabs">
-      <a href="#scout">Scouting report</a><a href="#deck">Your deck</a><a href="#cards">Your cards</a>
+      <a href="#scout">Scouting report</a><a href="#suggest">Card suggestions</a><a href="#deck">Your deck</a><a href="#cards">Your cards</a>
       <a href="#enemy">Enemy cards</a><a href="#combos">Enemy combos</a>
       <a href="#log">Battle log</a>
       <a href="#all" class="all">Show all</a>
@@ -317,6 +332,21 @@ footer { text-align: center; color: var(--muted); font-size: 12px; }
     <div class="panel-head"><h2 class="outline">Scouting report</h2>
       <span class="note">Tap any tile to see those battles</span></div>
     <div class="panel-body"><div class="scout" id="tips"></div></div>
+  </section>
+
+  <section class="panel" id="suggest">
+    <div class="panel-head"><h2 class="outline">Card suggestions</h2></div>
+    <div class="panel-body">
+      <p class="note" id="sugnote"></p>
+      <h3>Answers to your toughest matchups</h3>
+      <div id="answers"></div>
+      <h3>Cards winning the most</h3>
+      <p class="note">Cards that aren't in your main deck, best first. Faded rows have fewer than 15 games.</p>
+      <div class="rows" id="sugtop"></div>
+      <h3>Cards struggling the most against</h3>
+      <p class="note">Worth a second look if one of these is in your deck.</p>
+      <div class="rows" id="suglow"></div>
+    </div>
   </section>
 
   <section class="panel" id="deck">
@@ -443,27 +473,32 @@ function cardTile(c, size) {
   const ini = b.replace(/[^A-Za-z0-9 ]/g, "").split(" ").filter(Boolean).map((w) => w[0]).join("").slice(0, 3);
   const cls = ["card", size || "", info ? info[1] : "common", isEvo(c) ? "evo" : ""].join(" ");
   return `<span class="${cls}" data-ini="${esc(ini)}" title="${esc(c)}">` +
-    (info ? `<span class="ex">${info[0]}</span>` : "") +
+    (info && info[0] != null ? `<span class="ex">${info[0]}</span>` : "") +
     (isEvo(c) ? '<span class="evo-tag">EVO</span>' : "") +
     `<span class="nm">${esc(b)}</span></span>`;
 }
 
-function wrBar(wr) {
-  const v = wr * 100, b = BASE * 100;
+function wrBar(wr, base) {
+  const v = wr * 100, b = (base == null ? BASE : base) * 100;
   const left = Math.min(v, b), width = Math.abs(v - b);
   return `<span class="bar" aria-hidden="true"><span class="tick50"></span>` +
     `<span class="fill ${v >= b ? "up" : "down"}" style="left:${left}%;width:${Math.max(width, .8)}%"></span>` +
     `<span class="base" style="left:calc(${b}% - 1px)"></span></span>`;
 }
 
+// A row with no filter is plain (not clickable); item.base swaps the gold baseline, item.foot the trophy line.
 function rowHTML(item) {
   const t = item.t, active = sameFilter(state.filter, item.filter) ? " active" : "";
-  const small = t.n < 8 ? " small-n" : "";
-  return `<button type="button" class="row${active}${small}" data-f='${esc(JSON.stringify(item.filter))}' aria-label="${esc(item.aria || item.name)}: ${pct(t.w, t.n)}% win rate, ${t.w} wins ${t.l} losses">` +
+  const small = t.n < (item.smallN || 8) ? " small-n" : "";
+  const base = item.base == null ? BASE : item.base;
+  const tag = item.filter ? "button" : "div";
+  const open = item.filter ? `<button type="button" class="row${active}${small}" data-f='${esc(JSON.stringify(item.filter))}'` : `<div class="row${small}" role="group"`;
+  return open + ` aria-label="${esc(item.aria || item.name)}: ${pct(t.w, t.n)}% win rate, ${t.w} wins ${t.l} losses">` +
     `<span class="lab">${item.icon || ""}<span class="t">${esc(item.name)}${item.sub ? `<small>${esc(item.sub)}</small>` : ""}</span></span>` +
-    wrBar(t.wr) +
-    `<span class="stat num"><b class="${t.wr >= BASE ? "win" : "loss"}">${pct(t.w, t.n)}%</b> <span class="rec">${t.w}–${t.l}</span>` +
-    `<span class="tr ${t.net >= 0 ? "pos" : "neg"}">${signed(t.net)} trophies</span></span></button>`;
+    wrBar(t.wr, base) +
+    `<span class="stat num"><b class="${t.wr >= base ? "win" : "loss"}">${pct(t.w, t.n)}%</b> <span class="rec">${t.w}–${t.l}</span>` +
+    (item.foot != null ? `<span class="tr ${item.footCls || ""}">${esc(item.foot)}</span>` :
+      `<span class="tr ${t.net >= 0 ? "pos" : "neg"}">${signed(t.net)} trophies</span>`) + `</span></${tag}>`;
 }
 
 function bindRows(el) {
@@ -566,7 +601,8 @@ function groupBy(list, fn) {
   for (const b of list) { const k = fn(b); if (!m.has(k)) m.set(k, []); m.get(k).push(b); }
   return [...m].map(([k, bs]) => ({ k, t: tally(bs) }));
 }
-function renderTips() {
+// The scouting report's picks; the Card suggestions tab answers the same nemesis cards and combos.
+function scoutPicks() {
   const cards = groupEnemyCards(B, true).filter((x) => x.t.n >= 6);
   const nems = [...cards].filter((x) => x.t.extra > 0).sort((a, b) => b.t.extra - a.t.extra).slice(0, 2);
   const favs = [...cards].sort((a, b) => b.t.wr - a.t.wr || b.t.n - a.t.n).slice(0, 2);
@@ -581,6 +617,10 @@ function renderTips() {
   const combos = [...m].map(([k, bs]) => ({ v: k.split("\u0000"), t: tally(bs) })).filter((x) => x.t.n >= 6);
   const worstC = [...combos].filter((x) => x.t.extra > 0).sort((a, b) => b.t.extra - a.t.extra || a.t.wr - b.t.wr).slice(0, 2);
   const bestC = [...combos].sort((a, b) => b.t.wr - a.t.wr || b.t.n - a.t.n).slice(0, 2);
+  return { nems, favs, worstC, bestC };
+}
+function renderTips() {
+  const { nems, favs, worstC, bestC } = scoutPicks();
   const multi = (cls, k, items) => `<div class="tip ${cls}"><span class="k">${k}</span>` + items.map((x) =>
     `<button type="button" class="tip-item" data-f='${esc(JSON.stringify(x.f))}'><span class="h">${esc(x.h)}</span><span class="s">${x.s}</span></button>`).join("") + `</div>`;
   const cardItem = (x, extra) => ({ h: x.c, f: { type: "ecard", v: x.c, merge: true },
@@ -594,6 +634,123 @@ function renderTips() {
   if (bestC.length) html += multi("", bestC.length > 1 ? "Easiest card combos" : "Easiest card combo", bestC.map(comboItem));
   $("tips").innerHTML = html;
   bindRows($("tips"));
+}
+
+/* ---------- card suggestions ---------- */
+// Pooled from every tracked player's battles, both sides of each game. A card is judged against what
+// its decks were expected to win given who held them (the player's usual win rate, or the rest for
+// their opponents), so one strong player's deck doesn't make all eight of its cards look great.
+const POOL = DATA.pool || [];
+const OBS = [];   // one per deck per game: d = its cards, o = the other deck's cards, w = won, e = expected
+for (const p of POOL) for (const [my, opp, win] of p.games) {
+  const a = new Set(my), b = new Set(opp);
+  OBS.push({ d: a, o: b, w: win, e: p.wr }, { d: b, o: a, w: 1 - win, e: 1 - p.wr });
+}
+// lift = wins above expected per game, shrunk toward 0 so a 3–0 card doesn't beat a 30–15 one
+function cardScores(vs, shrink) {
+  const m = new Map();
+  for (const x of OBS) {
+    if (vs && !vs.every((c) => x.o.has(c))) continue;
+    for (const c of x.d) { const s = m.get(c) || { w: 0, n: 0, e: 0 }; s.w += x.w; s.n++; s.e += x.e; m.set(c, s); }
+  }
+  return [...m].map(([c, s]) => ({ c, ...s, t: { w: s.w, l: s.n - s.w, n: s.n, wr: s.w / s.n }, lift: (s.w - s.e) / (s.n + shrink) }));
+}
+const info = (c) => CARDS[c] || [null, "", "troop"];
+const isChamp = (c) => info(c)[1] === "champion";
+const WINCONS = new Set(DATA.wincons || []);
+function mainDeck() {
+  const g = groupBy(B, (b) => deckKey(b.my)).sort((a, b) => b.t.n - a.t.n)[0];
+  return g ? g.k.split("|").map(base) : [];
+}
+// Which card in your deck a suggestion would most naturally replace: same type (spell, building,
+// troop), win condition for win condition, champion for champion (one per deck), closest elixir.
+function swapFor(card, deck, lift) {
+  if (deck.includes(card)) return null;
+  const cands = isChamp(card) && deck.some(isChamp) ? deck.filter(isChamp)
+    : deck.filter((c) => info(c)[2] === info(card)[2] && !isChamp(c) && WINCONS.has(c) === WINCONS.has(card));
+  const cost = info(card)[0];
+  const gap = (c) => cost == null || info(c)[0] == null ? 9 : Math.abs(info(c)[0] - cost);
+  return cands.sort((a, b) => gap(a) - gap(b) || (lift.get(a) || 0) - (lift.get(b) || 0))[0] || null;
+}
+const rec = (w, n) => `${w}–${n - w}`;
+function renderSuggest() {
+  const games = POOL.reduce((s, p) => s + p.games.length, 0);
+  const names = POOL.map((p) => p.name);
+  $("sugnote").textContent = `Built on limited datasets from ${names.length > 1 ? names.slice(0, -1).join(", ") + " and " + names[names.length - 1] : names[0] || "your"} match history (${games} games) that will improve over time.`;
+  const deck = mainDeck();
+  const all = cardScores(null, 5);
+  const lift = new Map(all.map((x) => [x.c, x.lift]));
+  const swapNote = (c) => {
+    if (deck.includes(c)) return `<span class="tag-in">Already in your deck</span>`;
+    const out = swapFor(c, deck, lift);
+    return out ? `<span class="swap">Try it in place of ${esc(out)}</span>` : "";
+  };
+
+  // Answers: for each nemesis card and toughest combo, the cards whose decks beat it most, weighed
+  // with the counters the Clash Royale Wiki names (counters.json): a card both agree on ranks higher.
+  const { nems, worstC } = scoutPicks();
+  const WIKI = (DATA.counters || {}).cards || {};
+  const wikiFor = (vs) => {
+    const hits = new Map();
+    for (const c of vs) for (const k of WIKI[c] || []) if (!vs.includes(k)) hits.set(k, (hits.get(k) || 0) + 1);
+    return hits;   // card -> how many of these enemy cards the wiki says it answers
+  };
+  // Cards whose decks beat these enemy cards (all in one deck) clearly more often than expected.
+  // Cards with the exact same record nearly always came from one deck, so they make one answer.
+  const answers = (vs) => {
+    const wiki = wikiFor(vs);
+    const groups = new Map();
+    for (const x of cardScores(vs, 3)) {
+      if (vs.includes(x.c) || x.n < 4 || x.lift < 0.05) continue;
+      const k = x.w + "|" + x.n; if (!groups.has(k)) groups.set(k, []); groups.get(k).push(x);
+    }
+    const score = (g) => g[0].lift + (g.some((x) => wiki.has(x.c)) ? 0.1 : 0);
+    return [...groups.values()].map((g) => Object.assign(g, { vs, score: score(g), wiki: g.some((x) => wiki.has(x.c)) }))
+      .sort((a, b) => b.score - a.score);
+  };
+  const tile = (tg) => {
+    const label = tg.cards.join(" + "), them = tg.cards.length > 1 ? "them" : "it";
+    let picks = answers(tg.cards).slice(0, 3), lead = "";
+    // Nothing beats a combo as a pair yet? Then answer each of its cards on its own.
+    if (!picks.length && tg.cards.length > 1) {
+      picks = tg.cards.flatMap((c) => answers([c])).sort((a, b) => b.score - a.score).slice(0, 3);
+      if (picks.length) lead = `<span class="s">Nothing beats the pair yet, so here's what beats each card on its own.</span>`;
+    }
+    const body = picks.length ? lead + picks.map((g) => {
+      const x = g[0], cs = g.map((y) => y.c).sort((a, b) => (lift.get(b) || 0) - (lift.get(a) || 0));
+      const exp = Math.round(x.e);
+      return `<div class="answer"><span class="deck sm">${cs.slice(0, 3).map((c) => cardTile(c, "sm")).join("")}</span><span class="t">` +
+        `<span class="h display">${esc(cs.length > 3 ? cs.slice(0, 3).join(", ") + " +" + (cs.length - 3) : cs.join(", "))}</span>` +
+        `<span class="s">${cs.length > 1 ? "Always seen together. Their decks" : "Decks with it"} went ${rec(x.w, x.n)} against ${g.vs === tg.cards ? them : esc(g.vs.join(" + "))} (about ${rec(exp, x.n)} expected).</span>` +
+        (g.wiki ? `<span class="tag-in">The wiki names it as a counter too</span>` : "") +
+        (cs.length === 1 ? swapNote(cs[0]) : "") + `</span></div>`;
+    }).join("") : `<span class="s">No card in your games clearly beats ${them} yet.</span>`;
+    // Wiki counters not already shown above: ones that answer both combo cards first, then the best in your games.
+    const shown = new Set(picks.flat().map((x) => x.c));
+    const wiki = [...wikiFor(tg.cards)].filter(([c]) => !shown.has(c))
+      .sort((a, b) => b[1] - a[1] || (lift.get(b[0]) ?? -1) - (lift.get(a[0]) ?? -1)).slice(0, 4).map(([c]) => c);
+    const wikiHTML = wiki.length ? `<div class="wiki"><span class="k">Wiki counters</span><span class="deck sm">${wiki.map((c) => cardTile(c, "sm")).join("")}</span>` +
+      `<span class="s">${wiki.map((c) => esc(c) + (deck.includes(c) ? " (in your deck)" : "")).join(", ")}</span></div>` : "";
+    return `<div class="tip bad"><span class="k">Vs. ${esc(label)}</span><span class="s">You're ${tg.t.w}–${tg.t.l} against ${them}.</span>${body}${wikiHTML}</div>`;
+  };
+  const cardsT = nems.map((x) => ({ cards: [x.c], t: x.t })), combosT = worstC.map((x) => ({ cards: x.v, t: x.t }));
+  const src = DATA.counters ? `<p class="note">Counter suggestions based on <a href="https://clashroyale.fandom.com/" target="_blank" rel="noopener">${esc(DATA.counters.source)}</a> strategy pages (checked ${esc(DATA.counters.checked)}), weighed with your games.</p>` : "";
+  $("answers").innerHTML = (cardsT.length ? `<h4 class="answers-sub">Toughest cards</h4><div class="scout">${cardsT.map(tile).join("")}</div>` : "") +
+    (combosT.length ? `<h4 class="answers-sub">Toughest combos</h4><div class="scout">${combosT.map(tile).join("")}</div>` : "") +
+    (cardsT.length || combosT.length ? src : `<div class="empty">No tough matchups yet. Nice.</div>`);
+
+  const row = (x) => {
+    const extra = Math.round(x.w - x.e);
+    const out = x.lift > 0 && !deck.includes(x.c) ? swapFor(x.c, deck, lift) : null;
+    return rowHTML({ name: x.c, icon: cardTile(x.c, "sm"), t: x.t, base: x.e / x.n, smallN: 15,
+      sub: `in ${x.n} games` + (deck.includes(x.c) ? " · in your deck" : out ? ` · could replace your ${out}` : ""),
+      foot: `${signed(extra)} win${Math.abs(extra) === 1 ? "" : "s"} vs. expected`, footCls: extra >= 0 ? "pos" : "neg" });
+  };
+  const enough = all.filter((x) => x.n >= 8);
+  const top = enough.filter((x) => !deck.includes(x.c) && x.lift > 0).sort((a, b) => b.lift - a.lift).slice(0, 8);
+  const low = enough.filter((x) => x.lift < 0).sort((a, b) => a.lift - b.lift).slice(0, 6);
+  $("sugtop").innerHTML = top.length ? top.map(row).join("") : `<div class="empty">Not enough games yet.</div>`;
+  $("suglow").innerHTML = low.length ? low.map(row).join("") : `<div class="empty">Not enough games yet.</div>`;
 }
 
 /* ---------- trophy chart ---------- */
@@ -809,6 +966,6 @@ $("emerge").addEventListener("change", (e) => { state.merge = e.target.checked; 
 $("emore").addEventListener("click", () => { state.eshow = 999; renderEnemy(); });
 $("lmore").addEventListener("click", () => { state.lshow += 25; renderLog(); });
 
-renderHeader(); renderTips(); renderAllRows(); renderLog(); showTab();
+renderHeader(); renderTips(); renderSuggest(); renderAllRows(); renderLog(); showTab();
 let rz; new ResizeObserver(() => { clearTimeout(rz); rz = setTimeout(renderChart, 120); }).observe($("trchart"));
 </script>
