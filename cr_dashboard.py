@@ -29,6 +29,7 @@ except ImportError:
 
 HERE = Path(__file__).resolve().parent
 TEMPLATE = HERE / "dashboard_template.html"
+CARD_ART = HERE / "data" / "card_art.json"   # card images, saved by build_site.py from the API
 COUNTERS = HERE / "counters.json"   # card counters from the Clash Royale Wiki, for Card suggestions
 
 # Elixir cost and rarity for the card tiles. Cards missing here still work,
@@ -217,6 +218,7 @@ def main():
     counters = json.loads(COUNTERS.read_text()) if COUNTERS.exists() else None
     if counters:
         used |= {c for k, v in counters["cards"].items() for c in [k, *v]}
+    art = json.loads(CARD_ART.read_text()) if CARD_ART.exists() else {}
     data = {
         "player": {"name": args.name or args.player.title(), "tag": tag},
         "generated": datetime.now(timezone.utc).isoformat(timespec="seconds"),
@@ -225,6 +227,7 @@ def main():
         "wincons": sorted(set().union(*(w for _, w in ARCHETYPES)) | {"Royal Giant"}),
         "pool": pool,
         "counters": counters,
+        "art": {c: v for c, v in art.items() if c in used},
     }
     blob = json.dumps(data, separators=(",", ":")).replace("</", "<\\/")
     page = TEMPLATE.read_text(encoding="utf-8").replace("/*__DATA__*/null", blob)

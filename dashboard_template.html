@@ -198,6 +198,11 @@ div.row:hover { background: rgba(5, 15, 45, .3); }
 .card.legendary { --r: var(--legendary); border-image: linear-gradient(135deg, #ff8be0, #3fe0d0, #ffd23f) 1; border-radius: 4px; }
 .card.champion { --r: var(--champion); }
 .card.evo { box-shadow: 0 0 0 2px #e56bff, 0 0 12px 2px rgba(229,107,255,.6), 0 3px 0 rgba(0,0,0,.35); }
+/* real card art when data/card_art.json has it; the initials stay underneath in case it fails to load */
+.card .art { position: absolute; inset: 0; width: 100%; height: 100%; object-fit: cover; }
+.card.has-art::before { content: none; }
+.card.has-art .nm { position: absolute; left: 0; right: 0; bottom: 0; padding: 14px 2px 4px; background: linear-gradient(transparent, rgba(0,0,0,.8)); }
+.card .ex, .card .evo-tag { z-index: 2; }
 .card .ex {
   position: absolute; top: -2px; left: -2px; width: 22px; height: 26px;
   background: radial-gradient(circle at 40% 35%, #ff9cff, var(--elixir) 60%, #7a1a86);
@@ -471,8 +476,10 @@ const key = (c) => state.merge ? base(c) : c;
 function cardTile(c, size) {
   const b = base(c), info = CARDS[b];
   const ini = b.replace(/[^A-Za-z0-9 ]/g, "").split(" ").filter(Boolean).map((w) => w[0]).join("").slice(0, 3);
-  const cls = ["card", size || "", info ? info[1] : "common", isEvo(c) ? "evo" : ""].join(" ");
+  const art = (DATA.art || {})[b], src = art && (isEvo(c) && art[1] || art[0]);
+  const cls = ["card", size || "", info ? info[1] : "common", isEvo(c) ? "evo" : "", src ? "has-art" : ""].join(" ");
   return `<span class="${cls}" data-ini="${esc(ini)}" title="${esc(c)}">` +
+    (src ? `<img class="art" src="${esc(src)}" alt="" loading="lazy" onerror="this.parentNode.classList.remove('has-art');this.remove()">` : "") +
     (info && info[0] != null ? `<span class="ex">${info[0]}</span>` : "") +
     (isEvo(c) ? '<span class="evo-tag">EVO</span>' : "") +
     `<span class="nm">${esc(b)}</span></span>`;

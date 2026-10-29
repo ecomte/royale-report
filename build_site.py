@@ -26,8 +26,8 @@ from pathlib import Path
 
 sys.dont_write_bytecode = True  # keep __pycache__ out of the folder
 
-from cr_collect import (DATA_DIR, DEFAULT_BASE, CollectError, collect, fetch_battlelog, load_players,
-                        read_token, stamp, summary_line)
+from cr_collect import (DATA_DIR, DEFAULT_BASE, CollectError, collect, fetch_battlelog, fetch_cards,
+                        load_players, read_token, stamp, summary_line)
 from cr_duels import collect_duels, duel_summary
 from cr_dashboard import load_battles
 
@@ -115,6 +115,22 @@ def log_update(player, battle_times):
     updates_path(player).write_text(json.dumps(log[-KEEP_UPDATES:], indent=1) + "\n")
 
 
+def save_card_art(token):
+    """Card art links from the official API, kept in data/ so a build that can't reach it reuses the last ones."""
+    try:
+        cards = fetch_cards(DEFAULT_BASE, token)
+    except CollectError as e:
+        print(f"  Card art not updated: {e}")
+        return
+    art = {}
+    for c in cards:
+        urls = c.get("iconUrls") or {}
+        if urls.get("medium"):
+            art[c["name"]] = [urls["medium"], urls.get("evolutionMedium")]
+    (DATA_DIR / "card_art.json").write_text(json.dumps(art, indent=1, sort_keys=True) + "\n")
+    print(f"  Card art: {len(art)} cards")
+
+
 def fetch_all(pages):
     """Pull new battles (and duels) for every page's player. Returns {player: "ok" | error text}."""
     try:
@@ -123,6 +139,7 @@ def fetch_all(pages):
     except CollectError as e:
         print(f"[{stamp()}] Not fetching: {e}")
         return {p["player"]: str(e) for p in pages}
+    save_card_art(token)
     status = {}
     for p in pages:
         name = p["player"]
