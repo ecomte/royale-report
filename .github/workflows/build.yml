@@ -1,7 +1,8 @@
 # Pulls new battles for everyone in config.json, saves them to the battle-data branch, rebuilds the pages
 # and publishes them to GitHub Pages.
-# Runs when someone taps Refresh (or opens a page), every day at 3 AM Eastern, on pushes to main, and by
-# hand from the Actions tab ("Run workflow"). Builds run on any branch so a feature branch
+# Runs when someone taps Refresh, every day at 3 AM Eastern (started by the Cloudflare Worker, with
+# GitHub's own schedule below as a backup), on pushes to main, and by hand from the Actions tab
+# ("Run workflow"). Builds run on any branch so a feature branch
 # can be checked; only main saves battles and deploys.
 # Pushes to battle-data don't start this workflow (only main does), so saving never loops.
 name: Refresh battles and deploy
@@ -9,12 +10,14 @@ name: Refresh battles and deploy
 on:
   workflow_dispatch:
   schedule:
-    # Every day at 3 AM Eastern, so battles still get saved on days nobody opens the page (the API
-    # only keeps each player's last 25 battles). GitHub schedules are in UTC, so there are two:
-    # 07:00 UTC is 3 AM in summer (EDT) and 08:00 UTC is 3 AM in winter (EST). The "when" job
-    # skips whichever one isn't 3 AM that day. GitHub can start scheduled runs a few minutes late.
-    - cron: "0 7 * * *"
-    - cron: "0 8 * * *"
+    # Backup for the daily build. The Worker starts it at 3 AM Eastern on its own Cron Triggers
+    # (see worker/worker.js), because GitHub's schedules are best effort: they can start hours late
+    # or not at all (on Oct 29, 2026 neither of the old 07:00/08:00 ones ran). These are at 3:30 AM
+    # Eastern, off the busy top of the hour. GitHub schedules are in UTC, so there are two: 07:30 UTC
+    # is 3:30 AM in summer (EDT) and 08:30 UTC in winter (EST). The "when" job skips whichever one
+    # isn't 3:30 AM that day, and skips if the Worker's build already ran.
+    - cron: "30 7 * * *"
+    - cron: "30 8 * * *"
   push:
     branches: [main]
 
@@ -26,20 +29,29 @@ concurrency:
   cancel-in-progress: false
 
 jobs:
-  # Only for the daily schedule: go ahead if the schedule that fired is 3 AM Eastern today.
+  # Only for the backup schedule: go ahead if the schedule that fired is 3:30 AM Eastern today
+  # and no build on main has succeeded in the last 3 hours (the Worker's 3 AM one, or a Refresh).
   # It checks the schedule rather than the clock, since a late start shouldn't skip the day.
+  # If GitHub can't be asked about earlier builds, it builds anyway.
   when:
     if: github.event_name == 'schedule'
     runs-on: ubuntu-latest
+    permissions:
+      actions: read
     outputs:
       go: ${{ steps.check.outputs.go }}
     steps:
       - id: check
         env:
           SCHEDULE: ${{ github.event.schedule }}
+          GH_TOKEN: ${{ github.token }}
         run: |
-          if [ "$(TZ=America/New_York date +%Z)" = EDT ]; then three="0 7 * * *"; else three="0 8 * * *"; fi
-          if [ "$SCHEDULE" = "$three" ]; then echo "go=true" >> "$GITHUB_OUTPUT"; else echo "Not 3 AM Eastern today, skipping"; fi
+          if [ "$(TZ=America/New_York date +%Z)" = EDT ]; then three="30 7 * * *"; else three="30 8 * * *"; fi
+          if [ "$SCHEDULE" != "$three" ]; then echo "Not 3:30 AM Eastern today, skipping"; exit 0; fi
+          since=$(date -u -d '3 hours ago' +%Y-%m-%dT%H:%M:%SZ)
+          recent=$(gh api "repos/$GITHUB_REPOSITORY/actions/workflows/build.yml/runs?branch=main&status=success&created=%3E%3D$since" --jq .total_count) || recent=0
+          if [ "$recent" != "0" ]; then echo "Already built since $since, skipping"; exit 0; fi
+          echo "go=true" >> "$GITHUB_OUTPUT"
 
   build:
     needs: when
