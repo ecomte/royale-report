@@ -179,7 +179,7 @@ def load_pool(names):
             games.append([sorted({base(c) for c in b["my"]}), sorted({base(c) for c in b["opp"]}),
                           int(b["res"] == "W")])
         if games:
-            pool.append({"name": names.get(player, player.title()), "wr": sum(g[2] for g in games) / len(games),
+            pool.append({"key": player, "name": names.get(player, player.title()), "wr": sum(g[2] for g in games) / len(games),
                          "games": games})
     return pool
 
@@ -220,7 +220,7 @@ def main():
         used |= {c for k, v in counters["cards"].items() for c in [k, *v]}
     art = json.loads(CARD_ART.read_text()) if CARD_ART.exists() else {}
     data = {
-        "player": {"name": args.name or args.player.title(), "tag": tag},
+        "player": {"name": args.name or args.player.title(), "tag": tag, "key": args.player},
         "generated": datetime.now(timezone.utc).isoformat(timespec="seconds"),
         "battles": battles,
         "cards": {c: [*CARDS[c], kind(c)] if c in CARDS else [None, "", kind(c)] for c in sorted(used)},
