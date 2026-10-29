@@ -121,7 +121,16 @@ def read_token():
 
 
 def fetch_battlelog(base_url, token, tag):
-    url = f"{base_url.rstrip('/')}/players/{urllib.parse.quote(tag)}/battlelog"
+    return api_get(base_url, token, f"/players/{urllib.parse.quote(tag)}/battlelog")
+
+
+def fetch_cards(base_url, token):
+    """Every card in the game, with its art (iconUrls), for the card tiles on the site."""
+    return api_get(base_url, token, "/cards")["items"]
+
+
+def api_get(base_url, token, path):
+    url = base_url.rstrip("/") + path
     req = urllib.request.Request(
         url,
         headers={"Authorization": f"Bearer {token}", "Accept": "application/json"},
