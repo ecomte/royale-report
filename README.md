@@ -27,7 +27,8 @@ Clan Wars boat battles and duels aren't counted in any stats or pages, for eithe
 
 ```
 Refresh tap / script ─────► Cloudflare Worker ──┐
-Daily ──────────────────────────────────────────┴► GitHub Actions ──► cr_collect.py (new battles → data/)
+Daily 3 AM (Worker cron) ──► Cloudflare Worker ──┤
+Backup 3:30 AM (GitHub schedule) ───────────────┴► GitHub Actions ──► cr_collect.py (new battles → data/)
                                                                    └─► cr_dashboard.py (pages) ──► GitHub Pages
                                                                                                    ├─ /e/
                                                                                                    └─ /ryan/
@@ -38,7 +39,7 @@ Daily ────────────────────────�
 - **Refresh button:** asks the refresh service to start the workflow, waits for it (about a minute), then reloads with the new stats. One refresh updates both players. Opening a page never starts a build; builds only run from Refresh, `refresh_site.py`, the 3 AM daily build and pushes to `main`. If a build is already running, the page waits for that one instead of starting another, and if one finished in the last 5 minutes it just loads that. Nobody needs a token. The bar shows when the stats were last updated (date, time and how long ago, in the viewer's time zone). A note under it says Refresh takes about a minute and that the site updates on its own every day at 3 AM Eastern. Code: `web/refresh.js`.
 - **Refresh service:** the Clash Royale API key has to stay secret, so the browser can't call Clash Royale itself. Only the workflow can, and starting a workflow needs a GitHub token. A free Cloudflare Worker (`worker/worker.js`, at `https://royale-refresh.ecomte.workers.dev`) holds that one token and starts the workflow for the pages, so it never reaches anyone's browser (see [Refresh service](#refresh-service)).
 - **Duels (tracked, not shown yet):** Clan Wars duels are best of 3 with a different deck each round, so they stay out of every regular stat and page. `cr_duels.py` saves them on their own from the same API call: `data/<player>/duels.csv` (one row per duel, with each round's decks, crowns and result), `duels_raw.jsonl` (the API's full record, so the CSV can be re-parsed with `python3 cr_duels.py --rebuild`) and `DUEL_STATS.md` (duel and round record, sweeps, recent duels, round win rate per deck). A Duels tab can come later once there's enough data.
-- **Daily build:** every day at 3 AM Eastern, summer and winter. GitHub schedules are in UTC, so `build.yml` has two (07:00 and 08:00 UTC) and a small `when` job skips whichever isn't 3 AM that day. GitHub sometimes starts scheduled runs a few minutes late. The API only remembers each player's last 25 battles, so this keeps history from being lost on days nobody opens the page.
+- **Daily build:** every day at 3 AM Eastern, summer and winter, started by the Cloudflare Worker's Cron Triggers (`0 7 * * *` and `0 8 * * *` UTC; the Worker only starts the build on the one that's 3 AM in New York that day). GitHub's own schedule is only a backup, because GitHub's scheduled runs are best effort and can start hours late or not at all: on Oct 29, 2026 neither of the old 07:00/08:00 UTC schedules ran. The backup is at 3:30 AM Eastern (`30 7` and `30 8` UTC in `build.yml`, off the busy top of the hour), and its `when` job skips it if a build on `main` already succeeded in the last 3 hours. The API only remembers each player's last 25 battles, so this keeps history from being lost on days nobody refreshes.
 - **History:** every run that finds battles commits them to the **`battle-data`** branch ("Save new battles" commits from github-actions), which holds only `data/`. `main` only takes changes through pull requests, so the build can't save there. Each run starts from `battle-data`'s copy of `data/`; the `data/` in `main` is just the starting point from before hosting. To grab the latest history locally: `git fetch origin battle-data && git checkout origin/battle-data -- data`. If saving ever fails, the pages still publish and the next run tries again.
 - **Secrets:** one, `CR_API_TOKEN` (the Clash Royale API key). Calls go through the RoyaleAPI proxy (`proxy.royaleapi.dev`), so the key's allowed IP is `45.79.218.79` and it works from GitHub's machines.
 - **Players:** `config.json` lists the pages (player folder, display name, URL path) and `players.json` their tags. Adding a friend is a line in each.
@@ -56,6 +57,8 @@ Daily ────────────────────────�
 
 The Refresh button talks to a Cloudflare Worker on E's free Cloudflare account, which holds a GitHub token and starts the build. The free plan allows 100,000 requests a day; this site uses a few dozen.
 
+It also starts the daily 3 AM Eastern build from two Cron Triggers (see Setting it up, step 4). Cloudflare's crons are reliable, unlike GitHub's scheduled runs.
+
 What it allows: `POST /refresh` starts `build.yml` on `main`, joins a build that's already running, or hands back one that finished in the last 5 minutes. `GET /status?run=<id>` reports a build's progress, and `GET /status` the latest one. `/refresh` only answers requests from `https://ecomte.github.io` (and `http://localhost:8000` for local testing), and the 5-minute rule means it can't start more than about 12 builds an hour.
 
 **Setting it up (once):**
@@ -63,7 +66,8 @@ What it allows: `POST /refresh` starts `build.yml` on `main`, joins a build that
 1. **GitHub token.** Profile picture › **Settings › Developer settings › Personal access tokens › Fine-grained tokens › Generate new token**. Name `royale-refresh worker`, **Expiration** the longest it allows, **Repository access** *Only select repositories* › `royale-report`, **Permissions › Repository permissions › Actions: Read and write** (Metadata: Read is added automatically). Copy it.
 2. **Worker.** On [dash.cloudflare.com](https://dash.cloudflare.com): **Workers & Pages › Create › Create Worker**, name it `royale-refresh`, **Deploy**. Then **Edit code**, replace everything with `worker/worker.js` from this repo, and **Deploy**.
 3. **Secret.** The Worker's **Settings › Variables and Secrets › Add**: type *Secret*, name `GITHUB_TOKEN`, value the token. Save and deploy.
-4. **Check it.** Open `https://royale-refresh.ecomte.workers.dev/status`. It shows the latest build as JSON. An error names what's wrong with the token.
+4. **Daily build.** The Worker's **Settings › Trigger events › Add › Cron Triggers**: add `0 7 * * *`, then add another, `0 8 * * *` (both UTC). The Worker starts the build only on the one that's 3 AM Eastern. Its **Logs** show each cron run.
+5. **Check it.** Open `https://royale-refresh.ecomte.workers.dev/status`. It shows the latest build as JSON. An error names what's wrong with the token.
 
 **When `worker/worker.js` changes**, paste the new version into **Edit code** and deploy; merging it here doesn't update Cloudflare. **When the token expires**, make a new one the same way and replace the `GITHUB_TOKEN` secret; no code change. The address is in `config.json` (`worker`).
 

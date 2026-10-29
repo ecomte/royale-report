@@ -8,6 +8,12 @@
  *   GET  /status         the latest build on main (open it in a browser to check the Worker).
  *   GET  /status?run=ID  one build's progress, which the page asks for every few seconds.
  *
+ * It also starts the daily 3 AM Eastern build, from two Cron Triggers set in Cloudflare
+ * (royale-refresh › Settings › Trigger events): 0 7 * * * and 0 8 * * *. Cloudflare's crons are
+ * in UTC, so one is 3 AM in summer (EDT) and the other in winter (EST); scheduled() below starts
+ * the build only on the one that's 3 AM in New York. GitHub's own schedule in build.yml is just
+ * a backup, since GitHub can start scheduled runs hours late or skip them.
+ *
  * It can only start that one workflow and read builds, and /refresh only answers the site's
  * own pages, so the worst anyone can do with the address is start a build every 5 minutes.
  * This file lives in the repo so it's versioned; the copy that runs is the one pasted into
@@ -21,6 +27,26 @@ const RECENT_MS = 5 * 60 * 1000;   // a build that finished this recently counts
 const API = "https://api.github.com/repos/" + REPO + "/actions";
 
 const sleep = (ms) => new Promise((r) => setTimeout(r, ms));
+
+async function gh(env, path, opts) {
+  const res = await fetch(API + path, Object.assign({
+    headers: {
+      Accept: "application/vnd.github+json",
+      Authorization: "Bearer " + env.GITHUB_TOKEN,
+      "X-GitHub-Api-Version": "2022-11-28",
+      "User-Agent": "royale-refresh-worker",   // GitHub refuses requests without one
+    },
+  }, opts || {}));
+  if (res.status === 401) throw new Error("The Worker's GitHub token expired or is wrong");
+  if (res.status === 403 || res.status === 404) throw new Error("The Worker's GitHub token can't run builds for " + REPO);
+  if (!res.ok) throw new Error("GitHub said " + res.status);
+  return res.status === 204 ? null : res.json();
+}
+
+const dispatch = (env) => gh(env, "/workflows/" + WORKFLOW + "/dispatches", {
+  method: "POST",
+  body: JSON.stringify({ ref: BRANCH }),
+});
 
 // Only what the page needs from a run.
 const brief = (r) => ({ id: r.id, status: r.status, conclusion: r.conclusion,
@@ -43,28 +69,14 @@ export default {
     }
     if (!env.GITHUB_TOKEN) return reply({ message: "The Worker's GITHUB_TOKEN secret isn't set" }, 500);
 
-    async function gh(path, opts) {
-      const res = await fetch(API + path, Object.assign({
-        headers: {
-          Accept: "application/vnd.github+json",
-          Authorization: "Bearer " + env.GITHUB_TOKEN,
-          "X-GitHub-Api-Version": "2022-11-28",
-          "User-Agent": "royale-refresh-worker",   // GitHub refuses requests without one
-        },
-      }, opts || {}));
-      if (res.status === 401) throw new Error("The Worker's GitHub token expired or is wrong");
-      if (res.status === 403 || res.status === 404) throw new Error("The Worker's GitHub token can't run builds for " + REPO);
-      if (!res.ok) throw new Error("GitHub said " + res.status);
-      return res.status === 204 ? null : res.json();
-    }
-    const runs = () => gh("/workflows/" + WORKFLOW + "/runs?branch=" + BRANCH + "&per_page=10")
+    const runs = () => gh(env, "/workflows/" + WORKFLOW + "/runs?branch=" + BRANCH + "&per_page=10")
       .then((d) => d.workflow_runs);
 
     try {
       if (url.pathname === "/status" && request.method === "GET") {
         const id = url.searchParams.get("run");
         if (id && !/^\d+$/.test(id)) return reply({ message: "Bad run id" }, 400);
-        if (id) return reply({ run: brief(await gh("/runs/" + id)) });
+        if (id) return reply({ run: brief(await gh(env, "/runs/" + id)) });
         const [latest] = await runs();
         return reply({ run: latest ? brief(latest) : null });
       }
@@ -79,10 +91,7 @@ export default {
         if (last && last.conclusion === "success" && Date.now() - Date.parse(last.updated_at) < RECENT_MS) {
           return reply({ run: brief(last), recent: true });
         }
-        await gh("/workflows/" + WORKFLOW + "/dispatches", {
-          method: "POST",
-          body: JSON.stringify({ ref: BRANCH }),
-        });
+        await dispatch(env);
         // GitHub doesn't return the new run, so watch for it to appear.
         const seen = new Set(before.map((r) => r.id));
         for (let i = 0; i < 15; i++) {
@@ -97,5 +106,14 @@ export default {
     } catch (e) {
       return reply({ message: e.message }, 502);
     }
+  },
+
+  // The daily build, from the Cron Triggers above. A failure shows in the Worker's logs.
+  async scheduled(event, env) {
+    const hour = new Intl.DateTimeFormat("en-US", {
+      timeZone: "America/New_York", hour: "numeric", hourCycle: "h23",
+    }).format(new Date(event.scheduledTime));
+    if (Number(hour) !== 3) return;   // the other cron, the one that isn't 3 AM today
+    await dispatch(env);
   },
 };
