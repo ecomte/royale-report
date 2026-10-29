@@ -1,6 +1,6 @@
 # The Royale Report
 
-[![Release](https://img.shields.io/badge/release-v1.2.0-green)](https://github.com/ecomte/royale-report/releases)
+[![Release](https://img.shields.io/badge/release-v2.0.0-green)](https://github.com/ecomte/royale-report/releases)
 
 **Open it: [ecomte.github.io/royale-report](https://ecomte.github.io/royale-report/)**. One page each for **Alpha** (E, `/e/`) and **OmNs_OaTs** (Ryan, `/ryan/`), with a switch at the top to go between them.
 
@@ -18,6 +18,7 @@ This repository is the GitHub version of the Royale Report. It began as scripts 
 | 1.0.0 | Pages open on Show all, and tabs no longer jump the page back to the top; Deck types, What decides games and Trophy road hidden for now; the player name on its own line under the title; "Updated <date>" in place of the date range; the new-battles popup and refresh history switched on in the hosted build; Clan Wars duels tracked in the background in their own files (RR-6). |
 | 1.1.0 | Refresh goes through a free Cloudflare Worker that holds the only GitHub token, so the token prompt, key button and Ryan's `#token=` link are gone; the Worker joins a running build and won't start a new one within 5 minutes of the last; `refresh_site.py` refreshes from a terminal; a note under Refresh says it takes about a minute and that the site updates daily at 3 AM Eastern; the daily build moved to 3 AM Eastern all year (RR-8). |
 | 1.2.0 | Opening a page no longer starts a build: the site only rebuilds from Refresh, `refresh_site.py`, the 3 AM Eastern daily build and pushes to `main`; the top bar and the header under the player name show the date and time of the last update in the viewer's time zone, e.g. "Oct 28, 3:02 AM EDT" (RR-10). |
+| 2.0.0 | A new Card suggestions tab after the Scouting report: it pools both players' battles to suggest counters to your toughest cards and combos (backed by Clash Royale Wiki counters in `counters.json`), the cards winning and struggling the most, and which card in your deck each could replace; real card art on every card tile, from the official API (`data/card_art.json`); the Scouting report shows 2 nemesis cards, 2 toughest combos, 2 cards you feast on and 2 easiest combos instead of deck types; the 3 AM Eastern build is started by the Cloudflare Worker's Cron Triggers, with GitHub's schedule as a 3:30 AM backup (RR-12). |
 
 Release notes for each version are on the [Releases page](https://github.com/ecomte/royale-report/releases). The version shown in each page's footer comes from `version` in `config.json`.
 
@@ -110,9 +111,11 @@ Locally the key is read from `CR_API_TOKEN` or `.tokens/cr_api_token` (git ignor
 | `web/` | `refresh.js` and `refresh.css` (the bar at the top), `news.js` (new-battles popup and refresh history), `favicon.svg`. |
 | `refresh_site.py` | Refreshes the live site from a terminal, same as the Refresh button. |
 | `worker/worker.js` | The refresh service, a Cloudflare Worker. The running copy is pasted into Cloudflare. |
+| `counters.json` | Card counters from the Clash Royale Wiki's strategy pages, for the Card suggestions tab. Updated by hand. |
 | `config.json` | Repo, workflow, the refresh service's address, and the pages to build. |
 | `players.json` | Player folder → tag. Tags use the digit 0, never the letter O. |
 | `data/<player>/` | `battles.csv` (every saved battle) and `STATS.md`. Written by the scripts, not by hand. |
+| `data/card_art.json` | Card image links from the official API, saved by each fetch build. |
 
 Clan Wars boat battles and duels are skipped for everyone (`EXCLUDED_TYPES` in `cr_collect.py`).
 
