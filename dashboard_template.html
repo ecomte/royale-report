@@ -151,6 +151,14 @@ nav.jump a.all { border-style: dashed; }
 .tip .k { font-size: 12px; text-transform: uppercase; letter-spacing: .08em; font-weight: 900; color: var(--muted); }
 .tip .h { font-family: var(--font-display); font-size: 22px; line-height: 1.1; }
 .tip .s { font-size: 13px; color: var(--muted); }
+div.tip { cursor: default; }
+div.tip:hover { background: rgba(5, 15, 45, .45); }
+.tip-item {
+  display: grid; gap: 4px; text-align: left; color: inherit; font: inherit; cursor: pointer;
+  background: none; border: 0; border-radius: 8px; padding: 6px 8px; margin: 0 -8px;
+}
+.tip-item:hover { background: rgba(5, 15, 45, .6); }
+.tip-item + .tip-item { border-top: 1px solid rgba(255, 255, 255, .08); border-radius: 0 0 8px 8px; }
 
 /* ---------- card tiles ---------- */
 .card {
@@ -560,17 +568,30 @@ function groupBy(list, fn) {
 }
 function renderTips() {
   const cards = groupEnemyCards(B, true).filter((x) => x.t.n >= 6);
-  const nem = [...cards].sort((a, b) => b.t.extra - a.t.extra)[0];
-  const fav = [...cards].sort((a, b) => b.t.wr - a.t.wr || b.t.n - a.t.n)[0];
-  const arch = groupBy(B, (b) => b.arch).filter((x) => x.t.n >= 5);
-  const worstA = [...arch].sort((a, b) => a.t.wr - b.t.wr || b.t.n - a.t.n)[0];
-  const bestA = [...arch].sort((a, b) => b.t.wr - a.t.wr || b.t.n - a.t.n)[0];
-  const tip = (cls, k, h, s, f) => `<button type="button" class="tip ${cls}" data-f='${esc(JSON.stringify(f))}'><span class="k">${k}</span><span class="h">${esc(h)}</span><span class="s">${s}</span></button>`;
+  const nems = [...cards].filter((x) => x.t.extra > 0).sort((a, b) => b.t.extra - a.t.extra).slice(0, 2);
+  const favs = [...cards].sort((a, b) => b.t.wr - a.t.wr || b.t.n - a.t.n).slice(0, 2);
+  // combos: two enemy cards in the same deck (evos merged), at least 6 games together
+  const m = new Map();
+  for (const b of B) {
+    const cs = [...new Set(b.opp.map(base))].sort();
+    for (let i = 0; i < cs.length; i++) for (let j = i + 1; j < cs.length; j++) {
+      const k = cs[i] + "\u0000" + cs[j]; if (!m.has(k)) m.set(k, []); m.get(k).push(b);
+    }
+  }
+  const combos = [...m].map(([k, bs]) => ({ v: k.split("\u0000"), t: tally(bs) })).filter((x) => x.t.n >= 6);
+  const worstC = [...combos].filter((x) => x.t.extra > 0).sort((a, b) => b.t.extra - a.t.extra || a.t.wr - b.t.wr).slice(0, 2);
+  const bestC = [...combos].sort((a, b) => b.t.wr - a.t.wr || b.t.n - a.t.n).slice(0, 2);
+  const multi = (cls, k, items) => `<div class="tip ${cls}"><span class="k">${k}</span>` + items.map((x) =>
+    `<button type="button" class="tip-item" data-f='${esc(JSON.stringify(x.f))}'><span class="h">${esc(x.h)}</span><span class="s">${x.s}</span></button>`).join("") + `</div>`;
+  const cardItem = (x, extra) => ({ h: x.c, f: { type: "ecard", v: x.c, merge: true },
+    s: `You win ${pct(x.t.w, x.t.n)}% when it shows up (${x.t.w}–${x.t.l})` + (extra ? `, ${signed(x.t.net)} trophies.` : ".") });
+  const comboItem = (x) => ({ h: x.v.join(" + "), f: { type: "pair", v: x.v, merge: true },
+    s: `You win ${pct(x.t.w, x.t.n)}% when they show up together (${x.t.w}–${x.t.l}), ${signed(x.t.net)} trophies.` });
   let html = "";
-  if (nem) html += tip("bad", "Your nemesis card", nem.c, `You win ${pct(nem.t.w, nem.t.n)}% when it shows up (${nem.t.w}–${nem.t.l}), and it cost you ${signed(nem.t.net)} trophies.`, { type: "ecard", v: nem.c, merge: true });
-  if (worstA) html += tip("bad", "Toughest deck type", worstA.k, `${pct(worstA.t.w, worstA.t.n)}% win rate over ${worstA.t.n} games, ${signed(worstA.t.net)} trophies.`, { type: "arch", v: worstA.k });
-  if (bestA) html += tip("", "Easiest deck type", bestA.k, `${pct(bestA.t.w, bestA.t.n)}% win rate over ${bestA.t.n} games, ${signed(bestA.t.net)} trophies.`, { type: "arch", v: bestA.k });
-  if (fav) html += tip("", "Card you feast on", fav.c, `You win ${pct(fav.t.w, fav.t.n)}% when it shows up (${fav.t.w}–${fav.t.l}).`, { type: "ecard", v: fav.c, merge: true });
+  if (nems.length) html += multi("bad", nems.length > 1 ? "Your nemesis cards" : "Your nemesis card", nems.map((x) => cardItem(x, true)));
+  if (worstC.length) html += multi("bad", worstC.length > 1 ? "Toughest card combos" : "Toughest card combo", worstC.map(comboItem));
+  if (favs.length) html += multi("", favs.length > 1 ? "Cards you feast on" : "Card you feast on", favs.map((x) => cardItem(x, false)));
+  if (bestC.length) html += multi("", bestC.length > 1 ? "Easiest card combos" : "Easiest card combo", bestC.map(comboItem));
   $("tips").innerHTML = html;
   bindRows($("tips"));
 }

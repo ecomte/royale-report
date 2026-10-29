@@ -23,6 +23,8 @@ Release notes for each version are on the [Releases page](https://github.com/eco
 
 Clan Wars boat battles and duels aren't counted in any stats or pages, for either player. Each page's footer says boat battles are left out and duels are tracked but not analyzed or shown yet. Duels are saved separately in the background (see Duels under How it's set up) for a future Duels tab.
 
+The Scouting report tab shows four tiles: your two nemesis cards (enemy cards that cost you the most losses compared with your usual win rate), the two toughest card combos (two enemy cards in the same deck, at least 6 games together, that cost you the most), the two cards you feast on (highest win rate), and the two easiest card combos. Cards need at least 6 games to count, and evolved and normal versions count as one card. Tap a card or combo to see those battles.
+
 ## How it's set up
 
 ```
