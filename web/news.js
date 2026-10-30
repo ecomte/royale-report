@@ -36,7 +36,7 @@
       return '<li class="rr-b ' + b.res + '">' +
         '<span class="rr-res">' + res + "</span>" +
         '<span class="rr-who"><b>' + esc(b.oppName || "Opponent") + "</b>" +
-        "<small>" + esc(b.arch) + " · " + when(b.t) + "</small></span>" +
+        "<small>" + when(b.t) + "</small></span>" +
         '<span class="rr-score">' + (b.mc ?? "?") + "–" + (b.oc ?? "?") + "</span>" +
         '<span class="rr-tr">' + (b.dtr ? signed(b.dtr) : "") + "</span></li>";
     }).join("") + "</ul>";
