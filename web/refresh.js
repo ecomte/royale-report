@@ -39,7 +39,8 @@
     btn.disabled = false;
     btn.textContent = "Refresh";
     bar.classList.remove("busy");
-    msg.textContent = text || "Updated " + when(RR.generated) + " · " + ago(RR.generated);
+    const t = RR.refreshed || RR.generated;   // last battle refresh, not when the page was built
+    msg.textContent = text || "Updated " + when(t) + " · " + ago(t);
     msg.classList.toggle("warn", !!text);
   }
 

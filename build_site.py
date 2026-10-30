@@ -33,6 +33,7 @@ from cr_dashboard import load_battles
 
 HERE = Path(__file__).resolve().parent
 KEEP_UPDATES = 200   # refresh history entries kept per player (data/<player>/updates.json)
+REFRESHED = DATA_DIR / "refreshed.json"   # when the battles were last refreshed (the "Updated" time)
 CONFIG = HERE / "config.json"
 WEB = HERE / "web"
 
@@ -76,7 +77,7 @@ def footer(config):
     return FOOTER.replace("{repo}", config["repo"]).replace("{version}", html.escape(config["version"]))
 
 
-def landing(config, generated):
+def landing(config, refreshed):
     """The site's front page: one button per player, with their headline numbers."""
     players = load_players()
     cards = []
@@ -92,7 +93,7 @@ def landing(config, generated):
             tr=f"{last['tr'] + last['dtr']:,}" if last else "–"))
     return (LANDING.read_text(encoding="utf-8")
             .replace("<!--__PLAYERS__-->", "\n    ".join(cards))
-            .replace("__GENERATED__", generated)
+            .replace("__GENERATED__", refreshed)
             .replace("<!--__FOOTER__-->", footer(config)))
 
 
@@ -106,6 +107,14 @@ def load_updates(player):
         return json.loads(updates_path(player).read_text())
     except (FileNotFoundError, ValueError):
         return []
+
+
+def last_refreshed():
+    """When the battles were last refreshed, or None if that was never saved."""
+    try:
+        return json.loads(REFRESHED.read_text())["t"]
+    except (FileNotFoundError, ValueError, KeyError):
+        return None
 
 
 def log_update(player, battle_times):
@@ -141,6 +150,8 @@ def fetch_all(pages):
         return {p["player"]: str(e) for p in pages}
     save_card_art(token)
     status = {}
+    now = datetime.now(timezone.utc).isoformat(timespec="seconds")
+    new = False
     for p in pages:
         name = p["player"]
         try:
@@ -153,10 +164,16 @@ def fetch_all(pages):
                 print("  " + line)
             status[name] = "ok"
             if res["new"]:
+                new = True
                 log_update(name, [r["battle_time_utc"] for r in res["new_battles"]])
         except (CollectError, KeyError) as e:
             print(f"  {name:<8} FAILED: {e}")
             status[name] = str(e)
+    # The page's "Updated" time is the last real refresh: a Refresh tap, the 3 AM build or a hand run.
+    # A build from a push to main (a release) also pulls battles, but only counts if it found new ones,
+    # so merging a release doesn't make the page look freshly updated.
+    if "ok" in status.values() and (new or os.environ.get("GITHUB_EVENT_NAME") != "push"):
+        REFRESHED.write_text(json.dumps({"t": now}) + "\n")
     return status
 
 
@@ -165,6 +182,11 @@ def build(site, config, fetched):
         shutil.rmtree(site)
     shutil.copytree(WEB, site / "web")
     generated = datetime.now(timezone.utc).isoformat(timespec="seconds")
+    refreshed = last_refreshed()
+    if not refreshed:
+        # Before refreshed.json existed: start from the newest refresh history entry.
+        times = [u["t"] for p in config["pages"] for u in load_updates(p["player"])]
+        refreshed = max(times, default=generated)
     nav = [{"name": p["name"], "path": p["path"]} for p in config["pages"]]
     for p in config["pages"]:
         out = site / p["path"] / "index.html"
@@ -174,6 +196,7 @@ def build(site, config, fetched):
         rr = {
             "worker": config["worker"],
             "pages": nav, "current": p["path"], "generated": generated,
+            "refreshed": refreshed,
             "fetch": fetched.get(p["player"], "skipped"),
             "updates": load_updates(p["player"]),
         }
@@ -181,7 +204,7 @@ def build(site, config, fetched):
         # The template is a page body (no <html>/<head>), so give it a proper document head.
         out.write_text(HEAD.replace("{rr}", blob) + out.read_text(encoding="utf-8") + footer(config),
                        encoding="utf-8")
-    (site / "index.html").write_text(landing(config, generated), encoding="utf-8")
+    (site / "index.html").write_text(landing(config, refreshed), encoding="utf-8")
     (site / "status.json").write_text(json.dumps({"generated": generated, "fetch": fetched}, indent=2))
     (site / ".nojekyll").write_text("")
     print(f"[{stamp()}] Built {len(config['pages'])} pages into {site}")
