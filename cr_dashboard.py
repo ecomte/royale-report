@@ -29,6 +29,7 @@ except ImportError:
 
 HERE = Path(__file__).resolve().parent
 TEMPLATE = HERE / "dashboard_template.html"
+REFRESHED = HERE / "data" / "refreshed.json"   # last battle refresh, saved by build_site.py
 CARD_ART = HERE / "data" / "card_art.json"   # card images, saved by build_site.py from the API
 COUNTERS = HERE / "counters.json"   # card counters from the Clash Royale Wiki, for Card suggestions
 
@@ -219,9 +220,15 @@ def main():
     if counters:
         used |= {c for k, v in counters["cards"].items() for c in [k, *v]}
     art = json.loads(CARD_ART.read_text()) if CARD_ART.exists() else {}
+    generated = datetime.now(timezone.utc).isoformat(timespec="seconds")
+    try:
+        refreshed = json.loads(REFRESHED.read_text())["t"]
+    except (FileNotFoundError, ValueError, KeyError):
+        refreshed = generated
     data = {
         "player": {"name": args.name or args.player.title(), "tag": tag, "key": args.player},
-        "generated": datetime.now(timezone.utc).isoformat(timespec="seconds"),
+        "generated": generated,
+        "refreshed": refreshed,
         "battles": battles,
         "cards": {c: [*CARDS[c], kind(c)] if c in CARDS else [None, "", kind(c)] for c in sorted(used)},
         "wincons": sorted(set().union(*(w for _, w in ARCHETYPES)) | {"Royal Giant"}),
