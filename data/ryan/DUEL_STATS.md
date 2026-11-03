@@ -2,15 +2,16 @@
 
 Clan Wars duels only (best of 3). These never count in STATS.md or the dashboard.
 
-**Duels:** 4-4 (50.0%) over 8 duels, Oct 22, 2026 2:08 PM to Oct 31, 2026 4:35 PM
-**Rounds:** 11-9 (55.0%)
+**Duels:** 4-5 (44.4%) over 9 duels, Oct 22, 2026 2:08 PM to Nov 1, 2026 3:47 PM
+**Rounds:** 11-11 (50.0%)
 **Sweeps:** won 2-0 0 times, lost 0-2 0 times
-**Last 10 duels:** 4-4 (50.0%)
+**Last 10 duels:** 4-5 (44.4%)
 
 ## Recent duels
 
 | When | Result | Rounds | Opponent |
 |---|---|---|---|
+| Nov 1, 2026 3:47 PM | LOSS | 0-2 | alexSiii |
 | Oct 31, 2026 4:35 PM | LOSS | 1-2 | ..((..xXx..)).. |
 | Oct 30, 2026 1:54 PM | LOSS | 1-2 | #dag |
 | Oct 29, 2026 1:52 PM | WIN | 2-1 | Procópio |
@@ -24,7 +25,7 @@ Clan Wars duels only (best of 3). These never count in STATS.md or the dashboard
 
 | Rounds | Record | Deck |
 |---|---|---|
-| 8 | 6-2 (75.0%) | Battle Ram (Evo), Cannon Cart, Flying Machine, Furnace (Evo), Knight (Evo), Lightning, Skeleton Army, Zap |
-| 7 | 5-2 (71.4%) | Firecracker (Evo), Giant Snowball (Evo), Goblin Barrel, Mirror, Rocket, Spear Goblins, Tombstone, Valkyrie |
+| 9 | 6-3 (66.7%) | Battle Ram (Evo), Cannon Cart, Flying Machine, Furnace (Evo), Knight (Evo), Lightning, Skeleton Army, Zap |
+| 8 | 5-3 (62.5%) | Firecracker (Evo), Giant Snowball (Evo), Goblin Barrel, Mirror, Rocket, Spear Goblins, Tombstone, Valkyrie |
 | 4 | 0-4 (0.0%) | Arrows, Bats (Evo), Elixir Collector, Mini P.E.K.K.A, Monk, Skeletons (Evo), The Log, Three Musketeers |
 | 1 | 0-1 (0.0%) | Barbarian Barrel (Evo), Bowler (Evo), Goblin Hut, Graveyard, Ice Wizard, Poison, Tornado, Witch (Evo) |
