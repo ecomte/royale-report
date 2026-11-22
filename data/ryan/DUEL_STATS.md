@@ -2,8 +2,8 @@
 
 Clan Wars duels only (best of 3). These never count in STATS.md or the dashboard.
 
-**Duels:** 10-10 (50.0%) over 20 duels, Oct 22, 2026 2:08 PM to Nov 20, 2026 3:00 PM
-**Rounds:** 26-23 (53.1%)
+**Duels:** 11-10 (52.4%) over 21 duels, Oct 22, 2026 2:08 PM to Nov 21, 2026 4:28 PM
+**Rounds:** 28-24 (53.8%)
 **Sweeps:** won 2-0 0 times, lost 0-2 0 times
 **Last 10 duels:** 5-5 (50.0%)
 
@@ -11,6 +11,7 @@ Clan Wars duels only (best of 3). These never count in STATS.md or the dashboard
 
 | When | Result | Rounds | Opponent |
 |---|---|---|---|
+| Nov 21, 2026 4:28 PM | WIN | 2-1 | 空中小姐 |
 | Nov 20, 2026 3:00 PM | LOSS | 0-2 | LucidObject |
 | Nov 19, 2026 2:39 PM | LOSS | 1-2 | Rodrinhas |
 | Nov 15, 2026 1:31 PM | WIN | 2-1 | Diego |
@@ -20,14 +21,13 @@ Clan Wars duels only (best of 3). These never count in STATS.md or the dashboard
 | Nov 11, 2026 6:58 PM | WIN | 2-0 | 94 |
 | Nov 8, 2026 3:46 PM | WIN | 2-1 | juan |
 | Nov 7, 2026 5:30 PM | LOSS | 1-2 | Grey Gandalf |
-| Nov 6, 2026 3:01 PM | WIN | 2-0 | Rodrigo |
 
 ## Your duel decks (by round)
 
 | Rounds | Record | Deck |
 |---|---|---|
-| 20 | 14-6 (70.0%) | Battle Ram (Evo), Cannon Cart, Flying Machine, Furnace (Evo), Knight (Evo), Lightning, Skeleton Army, Zap |
+| 21 | 14-7 (66.7%) | Battle Ram (Evo), Cannon Cart, Flying Machine, Furnace (Evo), Knight (Evo), Lightning, Skeleton Army, Zap |
 | 15 | 9-6 (60.0%) | Firecracker (Evo), Giant Snowball (Evo), Goblin Barrel, Mirror, Rocket, Spear Goblins, Tombstone, Valkyrie |
-| 10 | 3-7 (30.0%) | Arrows, Bats (Evo), Elixir Collector, Mini P.E.K.K.A, Monk, Skeletons (Evo), The Log, Three Musketeers |
+| 11 | 4-7 (36.4%) | Arrows, Bats (Evo), Elixir Collector, Mini P.E.K.K.A, Monk, Skeletons (Evo), The Log, Three Musketeers |
+| 3 | 1-2 (33.3%) | Firecracker (Evo), Giant Snowball (Evo), Goblin Barrel, Mirror, Rocket, Spear Goblins, Tombstone (Evo), Valkyrie |
 | 2 | 0-2 (0.0%) | Barbarian Barrel (Evo), Bowler (Evo), Goblin Hut, Graveyard, Ice Wizard, Poison, Tornado, Witch (Evo) |
-| 2 | 0-2 (0.0%) | Firecracker (Evo), Giant Snowball (Evo), Goblin Barrel, Mirror, Rocket, Spear Goblins, Tombstone (Evo), Valkyrie |
